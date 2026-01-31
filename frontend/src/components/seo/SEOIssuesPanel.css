@@ -1,0 +1,732 @@
+.seo-issues-panel {
+  position: fixed;
+  right: 20px;
+  top: 80px;
+  width: 420px;
+  max-height: calc(100vh - 100px);
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.seo-issues-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.seo-issues-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.close-button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Health Score Card */
+.health-score-card {
+  padding: 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.health-score-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.health-score-circle {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  border: 4px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  flex-shrink: 0;
+}
+
+.health-score-value {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.health-score-info {
+  flex: 1;
+}
+
+.health-score-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.health-score-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.stat-item {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.stat-item.critical {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.stat-item.warning {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.btn-auto-fix-all {
+  width: 100%;
+  padding: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.btn-auto-fix-all:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Actions */
+.seo-actions {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.btn-analyze {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.btn-analyze:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-analyze:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Error Message */
+.error-message {
+  padding: 12px 20px;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 14px;
+  border-left: 4px solid #dc2626;
+  margin: 0 20px;
+  margin-top: 16px;
+  border-radius: 4px;
+}
+
+/* Issues Container */
+.issues-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.loading-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b7280;
+}
+
+.no-issues-message {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.no-issues-icon {
+  font-size: 48px;
+  color: #10b981;
+  margin-bottom: 12px;
+}
+
+.no-issues-text {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.issues-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.auto-fixable-count {
+  color: #10b981;
+  font-weight: 600;
+}
+
+/* Issue Card */
+.issue-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: box-shadow 0.2s;
+}
+
+.issue-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.issue-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.issue-severity {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.auto-fix-badge {
+  font-size: 11px;
+  background: #d1fae5;
+  color: #065f46;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.issue-title {
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.issue-message {
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.issue-suggestion {
+  background: #f3f4f6;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #374151;
+  margin-bottom: 12px;
+  border-left: 3px solid #3b82f6;
+}
+
+.issue-suggestion strong {
+  color: #1f2937;
+}
+
+.issue-values {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px;
+  background: #f9fafb;
+  border-radius: 6px;
+}
+
+.value-item {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.value-label {
+  font-weight: 600;
+  color: #6b7280;
+  min-width: 70px;
+}
+
+.value-text {
+  color: #111827;
+  flex: 1;
+  word-break: break-word;
+}
+
+.value-text.suggested {
+  color: #10b981;
+}
+
+.btn-auto-fix {
+  width: 100%;
+  padding: 8px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.btn-auto-fix:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+/* Scrollbar Styling */
+.issues-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.issues-container::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+
+.issues-container::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.issues-container::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Header Actions */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-git-settings {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-git-settings:hover {
+  background: #e5e7eb;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+/* Auto-fix Actions */
+.auto-fix-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.deploy-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+  user-select: none;
+}
+
+.deploy-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* Deployment Result */
+.deployment-result {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.deployment-result.success {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+}
+
+.deployment-result.error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.deployment-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.deployment-info {
+  flex: 1;
+}
+
+.deployment-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.deployment-result.success .deployment-title {
+  color: #166534;
+}
+
+.deployment-result.error .deployment-title {
+  color: #991b1b;
+}
+
+.deployment-details {
+  font-size: 13px;
+}
+
+.deployment-result.success .deployment-details {
+  color: #065f46;
+}
+
+.deployment-result.error .deployment-details {
+  color: #7f1d1d;
+}
+
+.commit-link {
+  color: #2563eb;
+  text-decoration: none;
+  font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.commit-link:hover {
+  text-decoration: underline;
+}
+
+/* Fixed Issue Styling */
+.issue-card.fixed-issue {
+  opacity: 0.8;
+  background-color: #f9fafb;
+}
+
+.fixed-issues-header {
+  margin-top: 20px;
+  padding: 12px;
+  background-color: #f0fdf4;
+  border-left: 4px solid #10b981;
+  border-radius: 4px;
+}
+
+/* Deployment Status Badges */
+.deployment-badge {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.deployment-badge.deployed {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #86efac;
+}
+
+.deployment-badge.db-only {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.deployment-badge.pending-verification {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.deployment-badge.verified {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+.deployment-badge.needs-attention {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+/* Refreshing Overlay */
+.refreshing-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  backdrop-filter: blur(2px);
+}
+
+.refreshing-spinner {
+  background: white;
+  padding: 16px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-weight: 600;
+  color: #667eea;
+  font-size: 14px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Celebration State */
+.no-issues-message.celebration {
+  padding: 60px 20px;
+}
+
+.no-issues-icon.celebration {
+  font-size: 64px;
+  color: #10b981;
+  animation: bounce 1s ease-in-out 2;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.no-issues-message.celebration .no-issues-text {
+  color: #111827;
+  font-size: 16px;
+}
+
+.no-issues-message.celebration .no-issues-text strong {
+  font-size: 18px;
+  color: #10b981;
+}
+
+/* Issues Container Positioning */
+.issues-container {
+  position: relative;
+}
+
+/* Slide-in Animation for Deployment Result */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Enhanced Deployment Result */
+.deployment-result {
+  animation: slideIn 0.3s ease-out;
+}
+
+.deployment-result .deployment-icon {
+  font-size: 32px;
+}
+
+/* Deploying State */
+.btn-deploy-pending:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* All Deployed Message */
+.all-deployed-message {
+  margin-top: 8px;
+  padding: 10px;
+  background: #d1fae5;
+  border-radius: 6px;
+  text-align: center;
+  color: #065f46;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Verification Prompt - 배포 후 재분석 유도 */
+.verification-prompt {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+  border-bottom: 1px solid #93c5fd;
+  animation: slideIn 0.3s ease-out;
+}
+
+.verification-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.verification-content {
+  flex: 1;
+}
+
+.verification-title {
+  font-weight: 700;
+  font-size: 15px;
+  color: #1e40af;
+  margin-bottom: 6px;
+}
+
+.verification-text {
+  font-size: 13px;
+  color: #3730a3;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.verification-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-verify {
+  flex: 1;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-verify:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.btn-verify:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-dismiss {
+  padding: 10px 16px;
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-dismiss:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* Score Change Animation */
+@keyframes scoreUp {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.score-improved {
+  animation: scoreUp 0.5s ease-out;
+}

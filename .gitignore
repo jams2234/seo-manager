@@ -1,0 +1,129 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Django
+*.log
+*.pot
+*.pyc
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+/media
+/staticfiles
+/static
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+nohup.out
+
+# Sockets
+*.sock
+
+# Environment variables
+.env
+.env.local
+
+# Service account credentials (secrets)
+config/seo-manager-*.json
+config/google_service_account.json
+*.json.enc
+
+# Backup files
+*back.py
+*backup*
+*.bak
+
+# Misc
+misc/
+*.log.*
+trading_game5.log
+
+# Embedded git repositories (submodules) - exclude from main repo
+ILLIT/
+워뇨띠포지션감지/
+
+# ============================================
+# 별도 프로젝트 (SEO Manager 레포에서 제외)
+# ============================================
+
+# 한글 폴더 (개별 봇/서비스)
+김프봇/
+오더봇/
+고래체결/
+실시간시세/
+롱숏/
+공포탐욕비율/
+매도매수벽_바이비트/
+지표 알림/
+업빗변동률10프로감지/
+BTCUSDT1시간차트거래량감지/
+
+# 기타 별도 프로젝트
+trading_games/
+Coingry.com/
+MVP/
+attendance/
+rps/
+code/
+templates/
+
+# 임시 문서 (README 제외)
+*.md
+!README.md
+!BACKEND_IMPLEMENTATION.md
+!FRONTEND_IMPLEMENTATION.md
+!QUICK_START.md
+!SEARCH_CONSOLE_INTEGRATION.md
+
+# 테스트 스크립트 (필요시 포함)
+test_*.py
+test_*.sh
+run_*.py
+run_*.sh
+verify_*.sh
+update_*.py
+
+# Cursor IDE
+.cursor/
+.cursorrules
+
+# 압축 로그
+*.gz
+

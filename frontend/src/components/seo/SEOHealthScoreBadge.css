@@ -1,0 +1,123 @@
+.seo-health-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.seo-health-badge.clickable {
+  cursor: pointer;
+}
+
+.seo-health-badge.clickable:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Badge Circle */
+.badge-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+}
+
+.seo-health-badge.small .badge-circle {
+  width: 30px;
+  height: 30px;
+  border-width: 2px;
+}
+
+.seo-health-badge.large .badge-circle {
+  width: 60px;
+  height: 60px;
+  border-width: 4px;
+}
+
+.badge-score {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.seo-health-badge.small .badge-score {
+  font-size: 12px;
+}
+
+.seo-health-badge.large .badge-score {
+  font-size: 24px;
+}
+
+/* Color variations */
+.seo-health-badge.excellent .badge-circle {
+  border-color: #10B981;
+}
+
+.seo-health-badge.excellent .badge-score {
+  color: #10B981;
+}
+
+.seo-health-badge.good .badge-circle {
+  border-color: #84CC16;
+}
+
+.seo-health-badge.good .badge-score {
+  color: #84CC16;
+}
+
+.seo-health-badge.fair .badge-circle {
+  border-color: #F59E0B;
+}
+
+.seo-health-badge.fair .badge-score {
+  color: #F59E0B;
+}
+
+.seo-health-badge.poor .badge-circle {
+  border-color: #EF4444;
+}
+
+.seo-health-badge.poor .badge-score {
+  color: #EF4444;
+}
+
+/* Badge Details */
+.badge-details {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.detail-item {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.detail-item.critical {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+.detail-item.warning {
+  background: #FEF3C7;
+  color: #D97706;
+}
+
+/* Hover effects */
+.seo-health-badge.clickable:hover .badge-circle {
+  transform: rotate(5deg);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
