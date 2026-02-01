@@ -1,8 +1,12 @@
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -195,3 +199,10 @@ GOOGLE_API_SCOPES = [
 SEO_CACHE_TTL = 86400  # 24 hours in seconds
 SEO_MAX_PAGES_PER_DOMAIN = 1000
 SEO_SUBDOMAIN_DISCOVERY_METHODS = ['dns', 'sitemap', 'search_console']
+
+# Claude AI Settings (Anthropic API)
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+CLAUDE_MODEL = 'claude-sonnet-4-20250514'  # Default model
+CLAUDE_MAX_TOKENS = 4096
+CLAUDE_RATE_LIMIT_PER_MINUTE = 50
+CLAUDE_CACHE_TTL = 86400  # 24 hours in seconds

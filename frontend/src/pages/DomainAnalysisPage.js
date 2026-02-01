@@ -9,6 +9,7 @@ import SubdomainTreeWithControls from '../components/tree/SubdomainTreeWithContr
 import Dashboard from '../components/dashboard/Dashboard';
 import PageDetails from '../components/dashboard/PageDetails';
 import ProgressModal from '../components/common/ProgressModal';
+import SitemapEditorTab from '../components/sitemap-editor/SitemapEditorTab';
 import { domainService } from '../services/domainService';
 import './DomainAnalysisPage.css';
 
@@ -30,7 +31,7 @@ const DomainAnalysisPage = () => {
     clearError
   } = useDomainStore();
 
-  const [activeTab, setActiveTab] = useState('tree'); // 'tree' or 'dashboard'
+  const [activeTab, setActiveTab] = useState('tree'); // 'tree', 'sitemap', or 'dashboard'
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRefreshingSC, setIsRefreshingSC] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -347,6 +348,12 @@ const DomainAnalysisPage = () => {
             🌳 Tree View
           </button>
           <button
+            className={`tab ${activeTab === 'sitemap' ? 'active' : ''}`}
+            onClick={() => setActiveTab('sitemap')}
+          >
+            🗺️ Sitemap Editor
+          </button>
+          <button
             className={`tab ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => setActiveTab('dashboard')}
           >
@@ -356,7 +363,7 @@ const DomainAnalysisPage = () => {
 
         {/* Content */}
         <div className="content-area">
-          {activeTab === 'tree' ? (
+          {activeTab === 'tree' && (
             <div className="tree-container">
               {treeData ? (
                 <SubdomainTreeWithControls
@@ -372,7 +379,16 @@ const DomainAnalysisPage = () => {
                 </div>
               )}
             </div>
-          ) : (
+          )}
+
+          {activeTab === 'sitemap' && currentDomain && (
+            <SitemapEditorTab
+              domainId={domainId}
+              domain={currentDomain}
+            />
+          )}
+
+          {activeTab === 'dashboard' && (
             <Dashboard domain={currentDomain} />
           )}
 

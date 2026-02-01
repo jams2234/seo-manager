@@ -13,6 +13,14 @@ from .views import (
     SEOAnalysisReportViewSet,
     SitemapConfigViewSet,
     SitemapHistoryViewSet,
+    SitemapAnalysisView,
+    # Sitemap Editor
+    SitemapEntryViewSet,
+    SitemapEditSessionViewSet,
+    SitemapEntryChangeViewSet,
+    # Sitemap AI
+    SitemapAIViewSet,
+    AIConversationViewSet,
 )
 
 # Create router and register viewsets
@@ -28,5 +36,19 @@ router.register(r'seo-issues', SEOIssueViewSet, basename='seoissue')
 router.register(r'seo-reports', SEOAnalysisReportViewSet, basename='seoanalysisreport')
 router.register(r'sitemap-configs', SitemapConfigViewSet, basename='sitemapconfig')
 router.register(r'sitemap-history', SitemapHistoryViewSet, basename='sitemaphistory')
+
+# Sitemap Analysis routes
+router.register(r'sitemap-analysis', SitemapAnalysisView, basename='sitemapanalysis')
+
+# Sitemap Editor routes
+router.register(r'sitemap-editor/entries', SitemapEntryViewSet, basename='sitemapentry')
+router.register(r'sitemap-editor/sessions', SitemapEditSessionViewSet, basename='sitemapeditsession')
+router.register(r'sitemap-editor/changes', SitemapEntryChangeViewSet, basename='sitemapentrychange')
+
+# Sitemap AI routes
+router.register(r'sitemap-ai', SitemapAIViewSet, basename='sitemapai')
+
+# AI Chat routes
+router.register(r'ai-chat/conversations', AIConversationViewSet, basename='aiconversation')
 
 urlpatterns = router.urls

@@ -238,7 +238,7 @@ class PageAnalysisService:
     def _verify_deployed_fixes(self, page, seo_result: Dict) -> List:
         """
         Verify deployed fixes against actual website analysis.
-        Updates verification_status for deployed issues.
+        Compares suggested_value with actual website value.
 
         Args:
             page: Page instance
@@ -248,11 +248,8 @@ class PageAnalysisService:
             List of updated SEOIssue instances
         """
         from ..models import SEOIssue
-
-        # Get currently detected issue types from actual website
-        current_issue_types = set(
-            issue_data.get('type') for issue_data in seo_result.get('issues', [])
-        )
+        import requests
+        from bs4 import BeautifulSoup
 
         # Get deployed issues that need verification
         deployed_issues = SEOIssue.objects.filter(
@@ -266,21 +263,50 @@ class PageAnalysisService:
         needs_attention_count = 0
         updated_issues = []
 
+        # Fetch actual values directly from website for accurate comparison
+        actual_title = ''
+        actual_description = ''
+        try:
+            response = requests.get(page.url, timeout=15, headers={
+                'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzer/1.0)'
+            })
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            title_tag = soup.find('title')
+            actual_title = title_tag.string.strip() if title_tag and title_tag.string else ''
+
+            desc_tag = soup.find('meta', attrs={'name': 'description'})
+            actual_description = desc_tag.get('content', '').strip() if desc_tag else ''
+
+            self.logger.info(f"Fetched actual values - title: '{actual_title[:50]}', desc: '{actual_description[:50]}...'")
+        except Exception as e:
+            self.logger.error(f"Failed to fetch actual website values: {e}")
+
         for issue in deployed_issues:
-            if issue.issue_type in current_issue_types:
-                # Issue still detected on actual website - needs attention
-                issue.verification_status = VerificationStatus.NEEDS_ATTENTION
-                needs_attention_count += 1
-                self.logger.warning(
-                    f"Issue {issue.issue_type} still detected on {page.url} after deployment"
-                )
-            else:
-                # Issue no longer detected - verified!
+            # Get actual value based on issue type
+            actual_value = self._get_actual_value_for_issue(
+                issue.issue_type, actual_title, actual_description
+            )
+            suggested_value = issue.suggested_value or ''
+
+            # Compare suggested value with actual website value
+            is_value_applied = self._compare_values(suggested_value, actual_value)
+
+            if is_value_applied:
+                # Suggested value is applied on website - verified!
                 issue.verification_status = VerificationStatus.VERIFIED
                 issue.verified_at = timezone.now()
                 verified_count += 1
                 self.logger.info(
-                    f"Issue {issue.issue_type} verified as fixed on {page.url}"
+                    f"Issue {issue.issue_type} verified: suggested value applied on {page.url}"
+                )
+            else:
+                # Suggested value not found on website - needs attention
+                issue.verification_status = VerificationStatus.NEEDS_ATTENTION
+                needs_attention_count += 1
+                self.logger.warning(
+                    f"Issue {issue.issue_type} not verified on {page.url}: "
+                    f"expected '{suggested_value[:50]}...', got '{actual_value[:50]}...'"
                 )
 
             issue.save(update_fields=['verification_status', 'verified_at'])
@@ -313,6 +339,63 @@ class PageAnalysisService:
         )
 
         return updated_issues
+
+    def _get_actual_value_for_issue(
+        self,
+        issue_type: str,
+        actual_title: str,
+        actual_description: str
+    ) -> str:
+        """
+        Get the actual website value based on issue type.
+
+        Args:
+            issue_type: Type of the SEO issue
+            actual_title: Title from the actual website
+            actual_description: Meta description from the actual website
+
+        Returns:
+            The actual value from the website for comparison
+        """
+        # Title-related issues
+        if 'title' in issue_type:
+            return actual_title
+
+        # Description-related issues
+        if 'description' in issue_type:
+            return actual_description
+
+        # Default: return empty string for unknown issue types
+        return ''
+
+    def _compare_values(self, suggested: str, actual: str) -> bool:
+        """
+        Compare suggested value with actual website value.
+
+        Args:
+            suggested: The suggested/expected value
+            actual: The actual value from the website
+
+        Returns:
+            True if values match (considering normalization)
+        """
+        if not suggested:
+            return False
+
+        # Normalize both values for comparison
+        suggested_normalized = suggested.strip()
+        actual_normalized = actual.strip()
+
+        # Exact match
+        if suggested_normalized == actual_normalized:
+            return True
+
+        # Check if suggested value is contained in actual (for cases where
+        # website might add suffixes like " | Site Name")
+        if suggested_normalized in actual_normalized:
+            return True
+
+        return False
 
     def _create_report(self, page, seo_result: Dict):
         """

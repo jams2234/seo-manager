@@ -344,7 +344,7 @@ class SitemapManager(ManagerService):
         try:
             parsed = urlparse(url)
             return bool(parsed.scheme and parsed.netloc)
-        except:
+        except Exception:
             return False
 
     def deploy(self, config_obj, xml_content: str, **kwargs) -> Dict:

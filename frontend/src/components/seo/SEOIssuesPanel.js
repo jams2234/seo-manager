@@ -3,6 +3,7 @@ import useSEOAnalysis from '../../hooks/useSEOAnalysis';
 import useIssueCategories from '../../hooks/useIssueCategories';
 import GitDeploymentSettings from './GitDeploymentSettings';
 import FixHistoryModal from './FixHistoryModal';
+import CodePreviewModal from './CodePreviewModal';
 import './SEOIssuesPanel.css';
 
 const SEOIssuesPanel = ({ pageId, domainId, onClose }) => {
@@ -13,6 +14,7 @@ const SEOIssuesPanel = ({ pageId, domainId, onClose }) => {
     analysisReport,
     analyzePageSEO,
     fetchIssues,
+    previewFix,
     autoFixIssue,
     bulkAutoFix,
     revertIssue,
@@ -48,6 +50,12 @@ const SEOIssuesPanel = ({ pageId, domainId, onClose }) => {
   const [deploying, setDeploying] = useState(false);
   const [previousHealthScore, setPreviousHealthScore] = useState(null);
   const [showVerificationPrompt, setShowVerificationPrompt] = useState(false);
+
+  // Code preview modal state
+  const [showCodePreview, setShowCodePreview] = useState(false);
+  const [previewData, setPreviewData] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewIssueId, setPreviewIssueId] = useState(null);
 
   useEffect(() => {
     if (pageId) {
@@ -131,7 +139,53 @@ const SEOIssuesPanel = ({ pageId, domainId, onClose }) => {
     }
   };
 
+  // Show code preview before auto-fix
+  const handleShowPreview = async (issueId) => {
+    setPreviewIssueId(issueId);
+    setPreviewLoading(true);
+    setShowCodePreview(true);
+    setPreviewData(null);
+
+    try {
+      const data = await previewFix(issueId);
+      setPreviewData(data);
+    } catch (err) {
+      console.error('Preview failed:', err);
+      // Still show modal with error state
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // Confirm and apply auto-fix after preview
+  const handleConfirmAutoFix = async () => {
+    if (!previewIssueId) return;
+
+    setShowCodePreview(false);
+
+    try {
+      const result = await autoFixIssue(previewIssueId);
+
+      // Refresh data to show updated status
+      await loadData();
+
+      // Show success message
+      alert(`수정이 적용되었습니다!\n\n💾 데이터베이스에 저장되었습니다.\n수정 완료 섹션의 "🚀 Git에 배포" 버튼으로 웹사이트에 반영할 수 있습니다.`);
+    } catch (err) {
+      alert('Failed to auto-fix issue: ' + err.message);
+    } finally {
+      setPreviewIssueId(null);
+      setPreviewData(null);
+    }
+  };
+
+  // Legacy function - now shows preview first
   const handleAutoFix = async (issueId) => {
+    handleShowPreview(issueId);
+  };
+
+  // Direct auto-fix without preview (for bulk operations)
+  const handleDirectAutoFix = async (issueId) => {
     try {
       const result = await autoFixIssue(issueId);
 
@@ -341,6 +395,19 @@ const SEOIssuesPanel = ({ pageId, domainId, onClose }) => {
           gitEnabled={gitEnabled}
         />
       )}
+
+      {/* Code Preview Modal */}
+      <CodePreviewModal
+        isOpen={showCodePreview}
+        onClose={() => {
+          setShowCodePreview(false);
+          setPreviewData(null);
+          setPreviewIssueId(null);
+        }}
+        onConfirm={handleConfirmAutoFix}
+        previewData={previewData}
+        loading={previewLoading}
+      />
 
       {/* Deployment Result */}
       {deploymentResult && (

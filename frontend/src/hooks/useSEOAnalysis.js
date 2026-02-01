@@ -76,6 +76,20 @@ const useSEOAnalysis = () => {
   }, []);
 
   /**
+   * Preview code changes before auto-fixing
+   * @param {number} issueId - The issue ID to preview
+   */
+  const previewFix = useCallback(async (issueId) => {
+    try {
+      const response = await apiClient.get(`/seo-issues/${issueId}/preview-fix/`);
+      return response.data;
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || err.message || 'Preview failed';
+      throw new Error(errorMessage);
+    }
+  }, []);
+
+  /**
    * Auto-fix a single SEO issue
    * @param {number} issueId - The issue ID to fix
    */
@@ -306,6 +320,7 @@ const useSEOAnalysis = () => {
     // Actions
     analyzePageSEO,
     fetchIssues,
+    previewFix,
     autoFixIssue,
     bulkAutoFix,
     revertIssue,

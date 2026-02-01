@@ -30,17 +30,17 @@ class DomainScanner:
             'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerBot/1.0)'
         })
 
-    def discover_from_sitemap(self, sitemap_url: str) -> List[str]:
+    def discover_from_sitemap(self, sitemap_url: str) -> List[Dict]:
         """
-        Discover URLs from sitemap
+        Discover URLs from sitemap with full entry data
 
         Args:
             sitemap_url: URL to sitemap.xml
 
         Returns:
-            List of discovered URLs
+            List of sitemap entries with url, lastmod, changefreq, priority
         """
-        urls = []
+        entries = []
 
         try:
             logger.info(f"Fetching sitemap: {sitemap_url}")
@@ -58,21 +58,36 @@ class DomainScanner:
             if sitemap_elements:
                 logger.info(f"Found {len(sitemap_elements)} child sitemaps")
                 for sitemap in sitemap_elements[:10]:  # Limit to 10 child sitemaps
-                    child_urls = self.discover_from_sitemap(sitemap.text)
-                    urls.extend(child_urls)
-                    if len(urls) >= self.max_pages:
+                    child_entries = self.discover_from_sitemap(sitemap.text)
+                    entries.extend(child_entries)
+                    if len(entries) >= self.max_pages:
                         break
             else:
-                # Regular sitemap with URLs
-                url_elements = root.findall('.//ns:url/ns:loc', namespace)
+                # Regular sitemap with URLs - extract full entry data
+                url_elements = root.findall('.//ns:url', namespace)
                 logger.info(f"Found {len(url_elements)} URLs in sitemap")
                 for url_elem in url_elements:
-                    if len(urls) >= self.max_pages:
+                    if len(entries) >= self.max_pages:
                         break
-                    urls.append(url_elem.text)
 
-            logger.info(f"Discovered {len(urls)} URLs from sitemap")
-            return urls[:self.max_pages]
+                    # Extract all sitemap entry fields
+                    loc = url_elem.find('ns:loc', namespace)
+                    lastmod = url_elem.find('ns:lastmod', namespace)
+                    changefreq = url_elem.find('ns:changefreq', namespace)
+                    priority = url_elem.find('ns:priority', namespace)
+
+                    entry = {
+                        'url': loc.text if loc is not None else None,
+                        'lastmod': lastmod.text if lastmod is not None else None,
+                        'changefreq': changefreq.text if changefreq is not None else None,
+                        'priority': priority.text if priority is not None else None,
+                    }
+
+                    if entry['url']:
+                        entries.append(entry)
+
+            logger.info(f"Discovered {len(entries)} URLs from sitemap")
+            return entries[:self.max_pages]
 
         except ET.ParseError as e:
             logger.error(f"Failed to parse sitemap XML {sitemap_url}: {e}")
@@ -93,7 +108,8 @@ class DomainScanner:
             Dictionary with discovered pages and metadata
         """
         base_url = f"{protocol}://{domain}"
-        discovered_urls = set()
+        # Store entries as dict with URL as key to preserve sitemap data
+        sitemap_entries = {}  # url -> entry dict
 
         # Try common sitemap locations
         sitemap_urls = [
@@ -104,27 +120,33 @@ class DomainScanner:
         ]
 
         for sitemap_url in sitemap_urls:
-            urls = self.discover_from_sitemap(sitemap_url)
-            discovered_urls.update(urls)
-            if urls:
+            entries = self.discover_from_sitemap(sitemap_url)
+            if entries:
+                for entry in entries:
+                    if entry['url'] and entry['url'] not in sitemap_entries:
+                        sitemap_entries[entry['url']] = entry
                 logger.info(f"Successfully used sitemap: {sitemap_url}")
                 break
 
         # If no sitemap found, try crawling the homepage
-        if not discovered_urls:
+        if not sitemap_entries:
             logger.info(f"No sitemap found, attempting to crawl homepage: {base_url}")
             homepage_urls = self._crawl_page(base_url, base_url, max_depth=2)
-            discovered_urls.update(homepage_urls)
+            # Convert crawled URLs to entry format (no sitemap data)
+            for url in homepage_urls:
+                if url not in sitemap_entries:
+                    sitemap_entries[url] = {'url': url, 'lastmod': None, 'changefreq': None, 'priority': None}
 
         # Organize URLs by subdomain and path
-        organized = self._organize_urls(list(discovered_urls), domain)
+        organized = self._organize_urls(sitemap_entries, domain)
 
         return {
             'domain': domain,
             'protocol': protocol,
-            'total_urls': len(discovered_urls),
+            'total_urls': len(sitemap_entries),
             'pages': organized['pages'],
             'subdomains': organized['subdomains'],
+            'mismatch_count': organized.get('mismatch_count', 0),
         }
 
     def _crawl_page(
@@ -202,12 +224,12 @@ class DomainScanner:
 
         return visited
 
-    def _organize_urls(self, urls: List[str], base_domain: str) -> Dict:
+    def _organize_urls(self, sitemap_entries: Dict[str, Dict], base_domain: str) -> Dict:
         """
         Organize URLs by subdomain and path hierarchy
 
         Args:
-            urls: List of discovered URLs
+            sitemap_entries: Dictionary of URL -> sitemap entry data
             base_domain: Base domain name
 
         Returns:
@@ -215,9 +237,21 @@ class DomainScanner:
         """
         pages = []
         subdomains = set()
+        mismatch_count = 0
 
-        for url in urls:
-            parsed = urlparse(url)
+        for url, entry in sitemap_entries.items():
+            # Check for redirects and get canonical URL
+            redirect_info = self._check_url_redirects(url)
+            canonical_url = redirect_info['canonical_url']
+            has_mismatch = redirect_info['has_mismatch']
+            redirect_chain = redirect_info['redirect_chain']
+
+            if has_mismatch:
+                mismatch_count += 1
+                logger.info(f"Sitemap mismatch detected: {url} -> {canonical_url}")
+
+            # Use canonical URL for parsing
+            parsed = urlparse(canonical_url)
 
             # Determine if it's a subdomain
             is_subdomain = False
@@ -235,22 +269,92 @@ class DomainScanner:
             path = parsed.path.strip('/')
             depth_level = len(path.split('/')) if path else 0
 
+            # Build sitemap entry for storage (original sitemap data)
+            sitemap_entry_data = {
+                'loc': url,  # Original URL from sitemap
+                'lastmod': entry.get('lastmod'),
+                'changefreq': entry.get('changefreq'),
+                'priority': entry.get('priority'),
+            }
+
             page_data = {
-                'url': url,
+                'url': canonical_url,  # Use canonical URL as primary
+                'sitemap_url': url if has_mismatch else None,  # Original sitemap URL if different
                 'path': parsed.path,
                 'is_subdomain': is_subdomain,
                 'subdomain': subdomain,
                 'depth_level': depth_level,
+                'has_sitemap_mismatch': has_mismatch,
+                'redirect_chain': redirect_chain if redirect_chain else None,
+                'sitemap_entry': sitemap_entry_data,  # Full sitemap entry data
             }
 
             pages.append(page_data)
 
-        logger.info(f"Organized {len(pages)} pages, found {len(subdomains)} subdomains")
+        logger.info(f"Organized {len(pages)} pages, found {len(subdomains)} subdomains, {mismatch_count} sitemap mismatches")
 
         return {
             'pages': pages,
             'subdomains': list(subdomains),
+            'mismatch_count': mismatch_count,
         }
+
+    def _check_url_redirects(self, url: str) -> Dict:
+        """
+        Check if URL redirects to a different URL (canonical URL detection)
+
+        Args:
+            url: URL to check
+
+        Returns:
+            Dictionary with canonical URL and redirect info
+        """
+        try:
+            # Send HEAD request following redirects
+            response = self.session.head(
+                url,
+                timeout=10,
+                allow_redirects=True
+            )
+
+            final_url = response.url
+            redirect_chain = []
+
+            # Get redirect history first
+            if response.history:
+                redirect_chain = [
+                    {
+                        'url': r.url,
+                        'status_code': r.status_code
+                    }
+                    for r in response.history
+                ]
+                redirect_chain.append({
+                    'url': final_url,
+                    'status_code': response.status_code
+                })
+
+            # If any redirect occurred, it's a mismatch (sitemap URL != canonical URL)
+            # This includes trailing slash redirects (308)
+            has_mismatch = len(redirect_chain) > 0
+
+            return {
+                'canonical_url': final_url,
+                'has_mismatch': has_mismatch,
+                'redirect_chain': redirect_chain,
+                'status_code': response.status_code,
+            }
+
+        except requests.RequestException as e:
+            logger.warning(f"Failed to check redirects for {url}: {e}")
+            # On error, return original URL
+            return {
+                'canonical_url': url,
+                'has_mismatch': False,
+                'redirect_chain': None,
+                'status_code': None,
+                'error': str(e),
+            }
 
     def build_hierarchy(self, pages: List[Dict]) -> Dict:
         """

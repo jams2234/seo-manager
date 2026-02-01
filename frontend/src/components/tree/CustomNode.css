@@ -233,6 +233,15 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.node-ranking-badge {
+  text-transform: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  border: 1px solid;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
 .node-label {
   font-size: 17px;
   font-weight: 700;
@@ -561,4 +570,314 @@
 
 .node-group-select option {
   padding: 8px;
+}
+
+/* Search Console Tooltip Styles */
+.tooltip-search-console {
+  margin-top: 8px;
+}
+
+.tooltip-section-title {
+  font-size: 12px !important;
+  color: #9CA3AF;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+}
+
+.tooltip-analytics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.analytics-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.analytics-label {
+  font-size: 11px !important;
+  color: #9CA3AF;
+  font-weight: 600;
+}
+
+.analytics-value {
+  font-size: 18px !important;
+  font-weight: 800;
+  color: #60A5FA;
+}
+
+.analytics-value.rank {
+  color: #10B981;
+}
+
+/* Index Status Explanation Styles */
+.tooltip-index-status {
+  margin-top: 8px;
+}
+
+.tooltip-index-explanation {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 14px 16px;
+  border-left: 4px solid #F59E0B;
+}
+
+.tooltip-index-explanation .explanation-title {
+  font-size: 15px !important;
+  font-weight: 700;
+  color: #FBBF24;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.tooltip-index-explanation .explanation-line {
+  font-size: 13px !important;
+  color: #D1D5DB;
+  line-height: 1.6;
+  margin-bottom: 3px;
+}
+
+.tooltip-index-explanation .explanation-line:last-child {
+  margin-bottom: 0;
+  color: #60A5FA;
+  font-weight: 600;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Keywords/Queries Section Styles */
+.tooltip-keywords {
+  margin-top: 8px;
+}
+
+.tooltip-keywords-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.keyword-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border-left: 3px solid #10B981;
+}
+
+.keyword-rank {
+  font-size: 11px !important;
+  font-weight: 800;
+  color: #10B981;
+  min-width: 24px;
+}
+
+.keyword-text {
+  flex: 1;
+  font-size: 13px !important;
+  font-weight: 600;
+  color: #F3F4F6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.keyword-stats {
+  font-size: 11px !important;
+  color: #9CA3AF;
+  white-space: nowrap;
+}
+
+.keyword-more {
+  text-align: center;
+  font-size: 12px !important;
+  color: #6B7280;
+  padding: 6px;
+  font-style: italic;
+}
+
+/* Sitemap Mismatch Warning Styles */
+.node-mismatch-badge {
+  animation: pulse-warning 2s ease-in-out infinite;
+}
+
+@keyframes pulse-warning {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.tooltip-sitemap-mismatch {
+  margin-top: 8px;
+}
+
+.tooltip-section-title.warning {
+  color: #FBBF24;
+  font-size: 13px !important;
+}
+
+.sitemap-mismatch-content {
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 10px;
+  padding: 14px 16px;
+  border-left: 4px solid #F59E0B;
+}
+
+.mismatch-explanation {
+  font-size: 12px !important;
+  color: #FCD34D;
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+.mismatch-urls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.mismatch-url-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+}
+
+.mismatch-url-label {
+  font-size: 11px !important;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.mismatch-url-label.error {
+  color: #EF4444;
+}
+
+.mismatch-url-label.success {
+  color: #10B981;
+}
+
+.mismatch-url-value {
+  font-size: 12px !important;
+  color: #E5E7EB;
+  font-family: monospace;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.mismatch-redirect-chain {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+}
+
+.redirect-chain-title {
+  font-size: 11px !important;
+  color: #9CA3AF;
+  font-weight: 700;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.redirect-chain-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px !important;
+  color: #D1D5DB;
+  margin-bottom: 4px;
+}
+
+.redirect-arrow {
+  color: #F59E0B;
+  font-weight: bold;
+}
+
+.redirect-status {
+  color: #F59E0B;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.redirect-url {
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.mismatch-fix-suggestion {
+  font-size: 12px !important;
+  color: #10B981;
+  line-height: 1.5;
+  padding: 10px 12px;
+  background: rgba(16, 185, 129, 0.1);
+  border-radius: 8px;
+  border-left: 3px solid #10B981;
+}
+
+.mismatch-fix-suggestion code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px !important;
+  color: #60A5FA;
+}
+
+/* Sitemap Preview Styles */
+.tooltip-sitemap-preview {
+  margin-top: 8px;
+}
+
+.sitemap-preview-content {
+  margin-top: 8px;
+}
+
+.sitemap-xml-preview {
+  background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+  color: #E2E8F0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace;
+  font-size: 11px !important;
+  line-height: 1.6;
+  white-space: pre;
+  overflow-x: auto;
+  margin: 0;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.sitemap-xml-preview::-webkit-scrollbar {
+  height: 6px;
+}
+
+.sitemap-xml-preview::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.sitemap-xml-preview::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.5);
+  border-radius: 3px;
+}
+
+.sitemap-xml-preview::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.7);
 }

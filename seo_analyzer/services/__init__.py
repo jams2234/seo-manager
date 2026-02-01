@@ -11,8 +11,42 @@ from .seo_advisor import SEOAdvisor
 from .content_analyzer import ContentAnalyzer
 from .sitemap_manager import SitemapManager
 from .seo_fixer import SEOFixer
+from .sitemap_editor import SitemapEditorService
+from .claude_client import ClaudeAPIClient, ClaudeAnalyzer
+from .sitemap_ai_analyzer import SitemapAIAnalyzerService
+
+# Custom exceptions
+from .exceptions import (
+    SEOAnalyzerException,
+    DomainException,
+    DomainNotFoundError,
+    DomainRefreshError,
+    PageException,
+    PageNotFoundError,
+    PageNotAccessibleError,
+    PageAnalysisError,
+    APIException,
+    APIQuotaExceededError,
+    APIConnectionError,
+    APIResponseError,
+    GitException,
+    GitNotConfiguredError,
+    GitDeploymentError,
+    GitCloneError,
+    GitPushError,
+    SEOIssueException,
+    IssueNotFixableError,
+    FixGenerationError,
+    SitemapException,
+    SitemapGenerationError,
+    SitemapDeploymentError,
+    ValidationException,
+    InvalidURLError,
+    CircularReferenceError,
+)
 
 __all__ = [
+    # Services
     'GoogleAPIClient',
     'PageSpeedInsightsService',
     'SearchConsoleService',
@@ -24,4 +58,35 @@ __all__ = [
     'ContentAnalyzer',
     'SitemapManager',
     'SEOFixer',
+    'SitemapEditorService',
+    'ClaudeAPIClient',
+    'ClaudeAnalyzer',
+    'SitemapAIAnalyzerService',
+    # Exceptions
+    'SEOAnalyzerException',
+    'DomainException',
+    'DomainNotFoundError',
+    'DomainRefreshError',
+    'PageException',
+    'PageNotFoundError',
+    'PageNotAccessibleError',
+    'PageAnalysisError',
+    'APIException',
+    'APIQuotaExceededError',
+    'APIConnectionError',
+    'APIResponseError',
+    'GitException',
+    'GitNotConfiguredError',
+    'GitDeploymentError',
+    'GitCloneError',
+    'GitPushError',
+    'SEOIssueException',
+    'IssueNotFixableError',
+    'FixGenerationError',
+    'SitemapException',
+    'SitemapGenerationError',
+    'SitemapDeploymentError',
+    'ValidationException',
+    'InvalidURLError',
+    'CircularReferenceError',
 ]

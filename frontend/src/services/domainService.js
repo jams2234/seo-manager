@@ -121,4 +121,18 @@ export const groupService = {
   getGroupPages: (id) => apiClient.get(`/page-groups/${id}/pages/`),
 };
 
+export const sitemapService = {
+  // Analyze sitemap URL for redirect issues
+  analyzeSitemap: (sitemapUrl, options = {}) =>
+    apiClient.post('/sitemap-analysis/analyze/', {
+      sitemap_url: sitemapUrl,
+      max_urls: options.maxUrls || 100,
+      include_all: options.includeAll || false,
+    }),
+
+  // Get all sitemap mismatches for a domain
+  getDomainMismatches: (domainId) =>
+    apiClient.get(`/sitemap-analysis/domain/${domainId}/mismatches/`),
+};
+
 export default domainService;

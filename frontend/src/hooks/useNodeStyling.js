@@ -80,6 +80,21 @@ const useNodeStyling = (
           is_indexed: node.is_indexed,
           index_status: node.index_status,
           coverage_state: node.coverage_state,
+          // Search Console analytics
+          avg_position: node.avg_position,
+          impressions: node.impressions,
+          clicks: node.clicks,
+          ctr: node.ctr,
+          top_queries: node.top_queries,
+          // Sitemap mismatch tracking
+          sitemap_url: node.sitemap_url,
+          has_sitemap_mismatch: node.has_sitemap_mismatch,
+          redirect_chain: node.redirect_chain,
+          sitemap_entry: node.sitemap_entry,
+          // Canonical URL index status
+          canonical_is_indexed: node.canonical_is_indexed,
+          canonical_index_status: node.canonical_index_status,
+          canonical_coverage_state: node.canonical_coverage_state,
           onUpdate: () => refreshTreeData(),
           onOpenSEOPanel: onOpenSEOPanel,
         },

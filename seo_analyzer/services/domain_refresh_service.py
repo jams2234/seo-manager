@@ -316,6 +316,19 @@ class DomainRefreshService:
                                 latest_metrics.clicks = analytics.get('clicks', 0)
                                 latest_metrics.ctr = analytics.get('ctr', 0)
                                 latest_metrics.avg_position = analytics.get('avg_position', 0)
+                                # 키워드(쿼리) 데이터 저장
+                                top_queries = analytics.get('top_queries', [])
+                                if top_queries:
+                                    latest_metrics.top_queries = [
+                                        {
+                                            'query': q.get('keys', [''])[0] if q.get('keys') else '',
+                                            'clicks': q.get('clicks', 0),
+                                            'impressions': q.get('impressions', 0),
+                                            'ctr': round(q.get('ctr', 0) * 100, 2),
+                                            'position': round(q.get('position', 0), 1)
+                                        }
+                                        for q in top_queries[:10]
+                                    ]
                         except BaseException as analytics_error:
                             # Search Analytics failure is non-fatal
                             logger.warning(f"⚠️ Search Analytics failed for {page.url}: {analytics_error}")
@@ -394,6 +407,7 @@ class DomainRefreshService:
         2. last_manually_edited_at이 있으면 parent_page 업데이트 안 함
         3. 메타데이터(title, description)는 항상 업데이트
         4. is_subdomain, subdomain은 자동 스캔 결과로 업데이트
+        5. Sitemap mismatch 정보는 항상 업데이트
 
         Args:
             domain: Domain 인스턴스
@@ -402,21 +416,68 @@ class DomainRefreshService:
         Returns:
             Page 인스턴스
         """
-        page, created = Page.objects.get_or_create(
-            domain=domain,
-            url=page_data['url'],
-            defaults={
-                'path': page_data['path'],
-                'is_subdomain': page_data['is_subdomain'],
-                'subdomain': page_data['subdomain'],
-                'depth_level': page_data.get('depth_level', 0),
-                'status': 'active',
-            }
-        )
+        # Handle sitemap URL mismatch: check if page exists with old sitemap URL
+        sitemap_url = page_data.get('sitemap_url')
+        canonical_url = page_data['url']
+        has_mismatch = page_data.get('has_sitemap_mismatch', False)
+
+        # Normalize URL for lookup (handle trailing slash variations)
+        # This prevents duplicate pages for URLs like /guide and /guide/
+        url_without_slash = canonical_url.rstrip('/')
+        url_with_slash = url_without_slash + '/'
+
+        page = None
+        created = False
+
+        # If there's a mismatch, first try to find existing page by sitemap URL
+        if has_mismatch and sitemap_url:
+            try:
+                page = Page.objects.get(domain=domain, url=sitemap_url)
+                # Update the URL to canonical
+                page.url = canonical_url
+                logger.info(f"Found existing page with sitemap URL, updating to canonical: {sitemap_url} -> {canonical_url}")
+            except Page.DoesNotExist:
+                pass
+
+        # If not found by sitemap URL, try to find by canonical URL (with/without trailing slash)
+        if page is None:
+            # Try exact match first, then variations
+            for url_variant in [canonical_url, url_without_slash, url_with_slash]:
+                try:
+                    page = Page.objects.get(domain=domain, url=url_variant)
+                    logger.debug(f"Found existing page with URL variant: {url_variant}")
+                    break
+                except Page.DoesNotExist:
+                    continue
+
+        # If still not found, create new page
+        if page is None:
+            page, created = Page.objects.get_or_create(
+                domain=domain,
+                url=canonical_url,
+                defaults={
+                    'path': page_data['path'],
+                    'is_subdomain': page_data['is_subdomain'],
+                    'subdomain': page_data['subdomain'],
+                    'depth_level': page_data.get('depth_level', 0),
+                    'status': 'active',
+                    # Sitemap mismatch tracking
+                    'sitemap_url': sitemap_url,
+                    'has_sitemap_mismatch': has_mismatch,
+                    'redirect_chain': page_data.get('redirect_chain'),
+                    'sitemap_entry': page_data.get('sitemap_entry'),
+                }
+            )
 
         if not created:
             # 기존 페이지 - 수동 편집 보존
             update_fields = []
+
+            # URL이 변경된 경우 (sitemap URL -> canonical URL 업데이트)
+            if page.url != canonical_url:
+                page.url = canonical_url
+                update_fields.append('url')
+                logger.info(f"Updating page URL: {page.url} -> {canonical_url}")
 
             # Path는 항상 업데이트 (URL 구조 변경 반영)
             if page.path != page_data['path']:
@@ -451,6 +512,27 @@ class DomainRefreshService:
             if 'description' in page_data and page.description != page_data['description']:
                 page.description = page_data['description']
                 update_fields.append('description')
+
+            # Sitemap mismatch 정보는 항상 업데이트
+            redirect_chain = page_data.get('redirect_chain')
+
+            if page.sitemap_url != sitemap_url:
+                page.sitemap_url = sitemap_url
+                update_fields.append('sitemap_url')
+
+            if page.has_sitemap_mismatch != has_mismatch:
+                page.has_sitemap_mismatch = has_mismatch
+                update_fields.append('has_sitemap_mismatch')
+
+            if page.redirect_chain != redirect_chain:
+                page.redirect_chain = redirect_chain
+                update_fields.append('redirect_chain')
+
+            # Sitemap entry 정보 업데이트
+            sitemap_entry = page_data.get('sitemap_entry')
+            if page.sitemap_entry != sitemap_entry:
+                page.sitemap_entry = sitemap_entry
+                update_fields.append('sitemap_entry')
 
             # 변경사항이 있으면 저장
             if update_fields:
@@ -603,9 +685,9 @@ class DomainRefreshService:
         start_time = time.time()
 
         # Worker configuration
-        # More workers than rate limit allows better CPU utilization
-        # while rate limiter controls actual API calls
-        max_workers = 10
+        # IMPORTANT: Keep workers <= rate limit (4) to prevent SIGABRT crashes
+        # in Celery fork processes. Higher worker counts cause SSL library conflicts.
+        max_workers = 4
 
         analysis_mode = "mobile-only" if self.mobile_only else "mobile+desktop"
         logger.info(
@@ -613,7 +695,8 @@ class DomainRefreshService:
             f"  - Pages: {total_pages}\n"
             f"  - Workers: {max_workers}\n"
             f"  - Analysis mode: {analysis_mode}\n"
-            f"  - Rate limit: 4 concurrent, 4 req/sec"
+            f"  - Rate limit: 4 concurrent, 4 req/sec\n"
+            f"  - Safe mode: Celery-compatible threading"
         )
 
         # OPTIMIZATION: Batch fetch index status for all pages at once (8-12x faster!)
@@ -649,42 +732,50 @@ class DomainRefreshService:
                 logger.error(f"❌ Batch URL Inspection failed, will use sequential fallback: {batch_error}", exc_info=True)
                 self.index_status_cache = {}
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all tasks immediately
-            # Rate limiting happens inside _fetch_page_metrics
-            future_to_page = {
-                executor.submit(self._fetch_page_metrics, page): page
-                for page in pages
-            }
+        try:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all tasks immediately
+                # Rate limiting happens inside _fetch_page_metrics
+                future_to_page = {
+                    executor.submit(self._fetch_page_metrics, page): page
+                    for page in pages
+                }
 
-            logger.info(f"Submitted all {total_pages} tasks to thread pool")
+                logger.info(f"Submitted all {total_pages} tasks to thread pool")
 
-            # Process completed tasks as they finish
-            for future in as_completed(future_to_page):
-                page = future_to_page[future]
+                # Process completed tasks as they finish
+                for future in as_completed(future_to_page):
+                    page = future_to_page[future]
 
-                try:
-                    success = future.result()
-                    if success:
-                        metrics_fetched += 1
-                    else:
+                    try:
+                        success = future.result(timeout=120)  # 2 minute timeout per page
+                        if success:
+                            metrics_fetched += 1
+                        else:
+                            failed_pages += 1
+
+                    except Exception as e:
                         failed_pages += 1
+                        logger.error(
+                            f"Exception processing {page.url}: {e}",
+                            exc_info=True
+                        )
 
-                except Exception as e:
-                    failed_pages += 1
-                    logger.error(
-                        f"Exception processing {page.url}: {e}",
-                        exc_info=True
+                    # Update progress (70-90% of total progress)
+                    progress_percent = 70 + int((metrics_fetched + failed_pages) / total_pages * 20)
+                    self._update_progress(
+                        progress_callback,
+                        progress_percent,
+                        100,
+                        f"Metrics: {metrics_fetched} succeeded, {failed_pages} failed ({analysis_mode})"
                     )
-
-                # Update progress (70-90% of total progress)
-                progress_percent = 70 + int((metrics_fetched + failed_pages) / total_pages * 20)
-                self._update_progress(
-                    progress_callback,
-                    progress_percent,
-                    100,
-                    f"Metrics: {metrics_fetched} succeeded, {failed_pages} failed ({analysis_mode})"
-                )
+        except Exception as pool_error:
+            # Catch any ThreadPoolExecutor crash and log it
+            logger.error(f"ThreadPoolExecutor crashed: {pool_error}", exc_info=True)
+            # Mark remaining pages as failed
+            remaining = total_pages - metrics_fetched - failed_pages
+            failed_pages += remaining
+            logger.warning(f"Marked {remaining} remaining pages as failed due to pool crash")
 
         # Summary
         elapsed = time.time() - start_time
@@ -869,7 +960,21 @@ class DomainRefreshService:
                     latest_metrics.clicks = analytics.get('clicks', 0)
                     latest_metrics.ctr = analytics.get('ctr', 0)
                     latest_metrics.avg_position = analytics.get('avg_position', 0)
-                    latest_metrics.save(update_fields=['impressions', 'clicks', 'ctr', 'avg_position'])
+                    # 키워드(쿼리) 데이터 저장
+                    top_queries = analytics.get('top_queries', [])
+                    if top_queries:
+                        # 필요한 필드만 저장 (query, clicks, impressions, ctr, position)
+                        latest_metrics.top_queries = [
+                            {
+                                'query': q.get('keys', [''])[0] if q.get('keys') else '',
+                                'clicks': q.get('clicks', 0),
+                                'impressions': q.get('impressions', 0),
+                                'ctr': round(q.get('ctr', 0) * 100, 2),
+                                'position': round(q.get('position', 0), 1)
+                            }
+                            for q in top_queries[:10]  # Top 10 queries
+                        ]
+                    latest_metrics.save(update_fields=['impressions', 'clicks', 'ctr', 'avg_position', 'top_queries'])
 
                     logger.debug(f"Updated Search Console analytics for {page.url}")
                 else:

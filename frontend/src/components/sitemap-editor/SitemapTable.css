@@ -1,0 +1,265 @@
+/* Sitemap Table Styles */
+.sitemap-table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Toolbar */
+.table-toolbar {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.btn-add {
+  background: #28a745;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-add:hover {
+  background: #218838;
+}
+
+/* Add Entry Form */
+.add-entry-form {
+  padding: 16px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.form-input {
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.loc-input {
+  flex: 1;
+  min-width: 300px;
+}
+
+.date-input {
+  width: 150px;
+}
+
+.select-input {
+  width: 120px;
+}
+
+.priority-input {
+  width: 80px;
+}
+
+/* Table */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.sitemap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.sitemap-table th,
+.sitemap-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.sitemap-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+  position: sticky;
+  top: 0;
+}
+
+.sitemap-table tr:hover {
+  background: #f8f9fa;
+}
+
+.row-pending {
+  background: #fff8e1 !important;
+}
+
+.row-invalid {
+  background: #ffebee !important;
+}
+
+/* Column widths */
+.col-status {
+  width: 100px;
+}
+
+.col-url {
+  min-width: 300px;
+}
+
+.col-lastmod {
+  width: 120px;
+}
+
+.col-changefreq {
+  width: 100px;
+}
+
+.col-priority {
+  width: 80px;
+}
+
+.col-http {
+  width: 80px;
+}
+
+.col-actions {
+  width: 120px;
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.badge-success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.badge-info {
+  background: #cce5ff;
+  color: #004085;
+}
+
+.badge-warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.badge-danger {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.badge-default {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.invalid-badge {
+  margin-left: 4px;
+  cursor: help;
+}
+
+/* HTTP Badge */
+.http-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.http-ok {
+  background: #d4edda;
+  color: #155724;
+}
+
+.http-error {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.ai-badge {
+  margin-left: 4px;
+  cursor: help;
+}
+
+/* URL Link */
+.url-link {
+  color: #007bff;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.url-link:hover {
+  text-decoration: underline;
+}
+
+.redirect-info {
+  font-size: 11px;
+  color: #856404;
+  margin-top: 4px;
+}
+
+/* Edit Inputs */
+.edit-input {
+  padding: 6px 10px;
+  border: 1px solid #007bff;
+  border-radius: 4px;
+  font-size: 13px;
+  width: 100%;
+}
+
+.priority-edit {
+  width: 60px;
+}
+
+/* Action Buttons */
+.action-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  background: #f8f9fa;
+  margin-right: 4px;
+}
+
+.action-btn:hover {
+  background: #e9ecef;
+}
+
+.action-btn.save {
+  color: #28a745;
+}
+
+.action-btn.cancel {
+  color: #dc3545;
+}
+
+.action-btn.edit {
+  color: #007bff;
+}
+
+.action-btn.check {
+  color: #6c757d;
+}
+
+.action-btn.delete {
+  color: #dc3545;
+}
+
+/* Empty Message */
+.empty-message {
+  text-align: center;
+  color: #6c757d;
+  padding: 40px 20px !important;
+}

@@ -15,7 +15,13 @@ from .models import (
     SEOIssue,
     SitemapConfig,
     SitemapHistory,
-    SEOAnalysisReport
+    SEOAnalysisReport,
+    SitemapEntry,
+    SitemapEditSession,
+    SitemapEntryChange,
+    AIAnalysisCache,
+    AIConversation,
+    AIMessage,
 )
 from .utils import is_descendant
 
@@ -44,6 +50,7 @@ class SEOMetricsSerializer(serializers.ModelSerializer):
             'clicks',
             'ctr',
             'avg_position',
+            'top_queries',
             'is_indexed',
             'index_status',
             'coverage_state',
@@ -285,6 +292,21 @@ class TreeNodeSerializer(serializers.Serializer):
     is_indexed = serializers.BooleanField(default=False)
     index_status = serializers.CharField(allow_null=True, required=False)
     coverage_state = serializers.CharField(allow_null=True, required=False)
+    # Search Console analytics
+    avg_position = serializers.FloatField(allow_null=True, required=False)
+    impressions = serializers.IntegerField(allow_null=True, required=False)
+    clicks = serializers.IntegerField(allow_null=True, required=False)
+    ctr = serializers.FloatField(allow_null=True, required=False)
+    top_queries = serializers.ListField(allow_null=True, required=False)
+    # Sitemap mismatch tracking
+    sitemap_url = serializers.CharField(allow_null=True, required=False)
+    has_sitemap_mismatch = serializers.BooleanField(default=False)
+    redirect_chain = serializers.ListField(allow_null=True, required=False)
+    sitemap_entry = serializers.JSONField(allow_null=True, required=False)
+    # Canonical URL index status (when different from sitemap URL)
+    canonical_is_indexed = serializers.BooleanField(allow_null=True, required=False)
+    canonical_index_status = serializers.CharField(allow_null=True, required=False)
+    canonical_coverage_state = serializers.CharField(allow_null=True, required=False)
 
 
 class TreeEdgeSerializer(serializers.Serializer):
@@ -341,11 +363,18 @@ class PageGroupCategorySerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
     def get_group_count(self, obj):
-        """Get number of groups in this category"""
+        """Get number of groups in this category (uses annotation if available)"""
+        # Use annotated value if available (avoids N+1 query)
+        if hasattr(obj, 'annotated_group_count'):
+            return obj.annotated_group_count
         return obj.groups.count()
 
     def get_page_count(self, obj):
-        """Get total number of pages in all groups in this category"""
+        """Get total number of pages in all groups in this category (uses annotation if available)"""
+        # Use annotated value if available (avoids N+1 query)
+        if hasattr(obj, 'annotated_page_count'):
+            return obj.annotated_page_count
+        # Fallback: This triggers N+1 queries but works without annotation
         return sum(group.pages.count() for group in obj.groups.all())
 
 
@@ -376,11 +405,17 @@ class PageGroupSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
     def get_page_count(self, obj):
-        """Get number of pages in this group"""
+        """Get number of pages in this group (uses annotation if available)"""
+        # Use annotated value if available (avoids N+1 query)
+        if hasattr(obj, 'annotated_page_count'):
+            return obj.annotated_page_count
         return obj.pages.count()
 
     def get_avg_seo_score(self, obj):
-        """Get average SEO score of pages in this group"""
+        """Get average SEO score of pages in this group (uses annotation if available)"""
+        # Use annotated value if available (avoids N+1 query)
+        if hasattr(obj, 'annotated_avg_seo_score'):
+            return obj.annotated_avg_seo_score
         return obj.avg_seo_score
 
     def validate_color(self, value):
@@ -582,3 +617,311 @@ class PageWithSEOIssuesSerializer(serializers.ModelSerializer):
 
     def get_critical_issues_count(self, obj):
         return obj.seo_issues.filter(status='open', severity='critical').count()
+
+
+# =============================================================================
+# Sitemap Editor Serializers
+# =============================================================================
+
+class SitemapEntrySerializer(serializers.ModelSerializer):
+    """Serializer for SitemapEntry model"""
+    page_id = serializers.IntegerField(source='page.id', read_only=True, allow_null=True)
+    page_url = serializers.CharField(source='page.url', read_only=True, allow_null=True)
+
+    class Meta:
+        model = SitemapEntry
+        fields = [
+            'id',
+            'domain',
+            'page_id',
+            'page_url',
+            'loc',
+            'lastmod',
+            'changefreq',
+            'priority',
+            'status',
+            'is_valid',
+            'validation_errors',
+            'ai_suggested',
+            'ai_suggestion_reason',
+            'http_status_code',
+            'redirect_url',
+            'last_checked_at',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'domain', 'loc_hash', 'created_at', 'updated_at']
+
+
+class SitemapEntryCreateSerializer(serializers.Serializer):
+    """Serializer for creating sitemap entries"""
+    loc = serializers.URLField(max_length=2048, help_text="URL location")
+    lastmod = serializers.DateField(required=False, allow_null=True, help_text="Last modification date")
+    changefreq = serializers.ChoiceField(
+        choices=['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never'],
+        required=False,
+        allow_null=True,
+        help_text="Change frequency"
+    )
+    priority = serializers.DecimalField(
+        max_digits=2,
+        decimal_places=1,
+        required=False,
+        allow_null=True,
+        min_value=0.0,
+        max_value=1.0,
+        help_text="Priority (0.0-1.0)"
+    )
+    session_id = serializers.IntegerField(help_text="Edit session ID")
+
+
+class SitemapEntryUpdateSerializer(serializers.Serializer):
+    """Serializer for updating sitemap entries"""
+    loc = serializers.URLField(max_length=2048, required=False)
+    lastmod = serializers.DateField(required=False, allow_null=True)
+    changefreq = serializers.ChoiceField(
+        choices=['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never'],
+        required=False,
+        allow_null=True,
+    )
+    priority = serializers.DecimalField(
+        max_digits=2,
+        decimal_places=1,
+        required=False,
+        allow_null=True,
+        min_value=0.0,
+        max_value=1.0,
+    )
+    session_id = serializers.IntegerField(help_text="Edit session ID")
+
+
+class SitemapEditSessionSerializer(serializers.ModelSerializer):
+    """Serializer for SitemapEditSession model"""
+    domain_name = serializers.CharField(source='domain.domain_name', read_only=True)
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True, allow_null=True)
+    changes_summary = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SitemapEditSession
+        fields = [
+            'id',
+            'domain',
+            'domain_name',
+            'created_by',
+            'created_by_username',
+            'name',
+            'status',
+            'entries_added',
+            'entries_removed',
+            'entries_modified',
+            'total_entries',
+            'changes_summary',
+            'ai_issues_found',
+            'ai_suggestions',
+            'ai_analysis_completed_at',
+            'deployment_commit_hash',
+            'deployment_message',
+            'deployment_error',
+            'deployed_at',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'entries_added', 'entries_removed', 'entries_modified',
+            'deployment_commit_hash', 'deployed_at', 'created_at', 'updated_at'
+        ]
+
+    def get_changes_summary(self, obj):
+        return obj.get_changes_summary()
+
+
+class SitemapEditSessionCreateSerializer(serializers.Serializer):
+    """Serializer for creating edit sessions"""
+    domain_id = serializers.IntegerField(help_text="Domain ID")
+    name = serializers.CharField(max_length=200, required=False, allow_blank=True)
+
+
+class SitemapEntryChangeSerializer(serializers.ModelSerializer):
+    """Serializer for SitemapEntryChange model"""
+    changed_by_username = serializers.CharField(source='changed_by.username', read_only=True, allow_null=True)
+    diff = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SitemapEntryChange
+        fields = [
+            'id',
+            'session',
+            'entry',
+            'change_type',
+            'source',
+            'url',
+            'old_values',
+            'new_values',
+            'diff',
+            'ai_reason',
+            'changed_by',
+            'changed_by_username',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'created_at']
+
+    def get_diff(self, obj):
+        return obj.get_diff()
+
+
+class SitemapPreviewSerializer(serializers.Serializer):
+    """Serializer for sitemap preview response"""
+    xml_content = serializers.CharField()
+    url_count = serializers.IntegerField()
+    size_bytes = serializers.IntegerField()
+    generated_at = serializers.DateTimeField()
+
+
+class SitemapDeployRequestSerializer(serializers.Serializer):
+    """Serializer for sitemap deployment request"""
+    session_id = serializers.IntegerField(help_text="Edit session ID")
+    commit_message = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+
+class SitemapSyncRequestSerializer(serializers.Serializer):
+    """Serializer for sitemap sync request"""
+    domain_id = serializers.IntegerField(help_text="Domain ID")
+    sitemap_url = serializers.URLField(required=False, allow_blank=True, help_text="Optional sitemap URL")
+
+
+class SitemapValidationResultSerializer(serializers.Serializer):
+    """Serializer for validation result"""
+    valid = serializers.BooleanField()
+    entry_count = serializers.IntegerField()
+    invalid_count = serializers.IntegerField()
+    issues = serializers.ListField(child=serializers.CharField())
+    warnings = serializers.ListField(child=serializers.CharField())
+
+
+class SitemapDiffSerializer(serializers.Serializer):
+    """Serializer for session diff"""
+    session_id = serializers.IntegerField()
+    session_name = serializers.CharField()
+    diff = serializers.DictField()
+    summary = serializers.DictField()
+
+
+class BulkEntryImportSerializer(serializers.Serializer):
+    """Serializer for bulk entry import"""
+    session_id = serializers.IntegerField()
+    entries = serializers.ListField(
+        child=serializers.DictField(),
+        help_text="List of entry objects with loc, lastmod, changefreq, priority"
+    )
+
+
+# =============================================================================
+# AI Conversation Serializers
+# =============================================================================
+
+class AIMessageSerializer(serializers.ModelSerializer):
+    """Serializer for AI message"""
+
+    class Meta:
+        model = AIMessage
+        fields = [
+            'id',
+            'role',
+            'message_type',
+            'content',
+            'structured_data',
+            'input_tokens',
+            'output_tokens',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'created_at']
+
+
+class AIConversationSerializer(serializers.ModelSerializer):
+    """Serializer for AI conversation"""
+    domain_name = serializers.CharField(source='domain.domain_name', read_only=True, allow_null=True)
+    messages = AIMessageSerializer(many=True, read_only=True)
+    message_count = serializers.IntegerField(source='total_messages', read_only=True)
+
+    class Meta:
+        model = AIConversation
+        fields = [
+            'id',
+            'domain',
+            'domain_name',
+            'title',
+            'conversation_type',
+            'status',
+            'total_messages',
+            'message_count',
+            'total_tokens_used',
+            'created_at',
+            'updated_at',
+            'last_message_at',
+            'messages',
+        ]
+        read_only_fields = ['id', 'total_messages', 'total_tokens_used', 'created_at', 'updated_at', 'last_message_at']
+
+
+class AIConversationListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for listing conversations"""
+    domain_name = serializers.CharField(source='domain.domain_name', read_only=True, allow_null=True)
+    last_message_preview = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AIConversation
+        fields = [
+            'id',
+            'domain',
+            'domain_name',
+            'title',
+            'conversation_type',
+            'status',
+            'total_messages',
+            'created_at',
+            'updated_at',
+            'last_message_at',
+            'last_message_preview',
+        ]
+
+    def get_last_message_preview(self, obj):
+        last_msg = obj.messages.order_by('-created_at').first()
+        if last_msg:
+            content = last_msg.content
+            return content[:100] + '...' if len(content) > 100 else content
+        return None
+
+
+class AIConversationCreateSerializer(serializers.Serializer):
+    """Serializer for creating a new conversation"""
+    domain_id = serializers.IntegerField(required=False, allow_null=True, help_text="Domain ID (optional)")
+    conversation_type = serializers.ChoiceField(
+        choices=AIConversation.CONVERSATION_TYPES,
+        default='general'
+    )
+    title = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    initial_message = serializers.CharField(required=False, allow_blank=True, help_text="Optional initial user message")
+
+
+class AIChatRequestSerializer(serializers.Serializer):
+    """Serializer for sending a chat message"""
+    conversation_id = serializers.IntegerField(help_text="Conversation ID")
+    message = serializers.CharField(help_text="User message")
+    include_context = serializers.BooleanField(
+        default=True,
+        help_text="Whether to include domain/sitemap context in the AI prompt"
+    )
+
+
+class AIAnalyzeRequestSerializer(serializers.Serializer):
+    """Serializer for analysis request with conversation tracking"""
+    domain_id = serializers.IntegerField(help_text="Domain ID to analyze")
+    analysis_type = serializers.ChoiceField(
+        choices=['sitemap', 'seo_issues', 'full_report'],
+        help_text="Type of analysis to perform"
+    )
+    conversation_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text="Existing conversation ID (creates new if not provided)"
+    )

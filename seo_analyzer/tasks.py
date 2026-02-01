@@ -11,7 +11,13 @@ from .services import DomainRefreshService
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True)
+@shared_task(
+    bind=True,
+    soft_time_limit=600,  # 10 minutes soft limit
+    time_limit=660,       # 11 minutes hard limit
+    acks_late=True,       # Acknowledge after completion (allows retry on crash)
+    max_retries=1,        # Retry once on failure
+)
 def refresh_domain_cache(self, domain_id):
     """
     Background task to refresh all data for a domain
@@ -21,6 +27,11 @@ def refresh_domain_cache(self, domain_id):
 
     Returns:
         dict: Refresh result with pages_discovered, pages_processed, etc.
+
+    Notes:
+        - Uses 4 parallel workers (safe for Celery fork)
+        - 10 minute soft limit, 11 minute hard limit
+        - Will retry once on crash/timeout
     """
     try:
         domain = Domain.objects.get(id=domain_id)

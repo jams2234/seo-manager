@@ -80,7 +80,8 @@ echo ""
 # Step 7: Start Celery Worker
 echo -e "${YELLOW}[7/7] Starting Celery Worker...${NC}"
 cd "$PROJECT_ROOT"
-nohup python3 -m celery -A telegram_bot worker -l info --logfile=/tmp/celery_worker.log > /tmp/celery_worker_startup.log 2>&1 &
+# Using solo pool to avoid SIGABRT crashes with Google API C libraries (SSL/gRPC)
+nohup python3 -m celery -A telegram_bot worker -l info --pool=solo --logfile=/tmp/celery_worker.log > /tmp/celery_worker_startup.log 2>&1 &
 sleep 3
 
 # Verify Celery is running

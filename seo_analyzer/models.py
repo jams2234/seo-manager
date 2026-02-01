@@ -287,6 +287,29 @@ class Page(models.Model):
     description = models.TextField(null=True, blank=True)
     canonical_url = models.URLField(max_length=2048, null=True, blank=True)
 
+    # Sitemap Mismatch Tracking
+    sitemap_url = models.URLField(
+        max_length=2048,
+        null=True,
+        blank=True,
+        help_text="URL as it appears in the sitemap (may differ from canonical due to redirects)"
+    )
+    has_sitemap_mismatch = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="True if sitemap URL differs from canonical URL (redirect issue)"
+    )
+    redirect_chain = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="List of redirect hops from sitemap URL to canonical URL"
+    )
+    sitemap_entry = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Original sitemap entry data (loc, lastmod, changefreq, priority)"
+    )
+
     # Status
     status = models.CharField(max_length=20, default='active', choices=STATUS_CHOICES)
     http_status_code = models.IntegerField(null=True, blank=True)
@@ -364,6 +387,37 @@ class Page(models.Model):
             return False
         return timezone.now() < self.cache_expires_at
 
+    def get_latest_metrics(self):
+        """
+        Get the latest SEO metrics for this page.
+        Returns None if no metrics exist.
+
+        Note: If using with prefetch_related('seo_metrics'),
+        this will use the cached queryset.
+        """
+        return self.seo_metrics.first()
+
+    @property
+    def latest_seo_score(self):
+        """
+        Get the latest SEO score for this page.
+        Returns None if no metrics exist.
+        """
+        metrics = self.get_latest_metrics()
+        return metrics.seo_score if metrics else None
+
+    @property
+    def latest_performance_score(self):
+        """Get the latest performance score for this page."""
+        metrics = self.get_latest_metrics()
+        return metrics.performance_score if metrics else None
+
+    @property
+    def latest_accessibility_score(self):
+        """Get the latest accessibility score for this page."""
+        metrics = self.get_latest_metrics()
+        return metrics.accessibility_score if metrics else None
+
 
 class SEOMetrics(models.Model):
     """
@@ -392,11 +446,21 @@ class SEOMetrics(models.Model):
     clicks = models.BigIntegerField(null=True, blank=True)
     ctr = models.FloatField(null=True, blank=True, help_text="Click-through rate")
     avg_position = models.FloatField(null=True, blank=True)
+    top_queries = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Top search queries for this page from Search Console"
+    )
 
-    # Indexing Status
+    # Indexing Status (for sitemap URL)
     is_indexed = models.BooleanField(default=False)
     index_status = models.CharField(max_length=100, null=True, blank=True)
     coverage_state = models.CharField(max_length=100, null=True, blank=True)
+
+    # Canonical URL Index Status (when different from sitemap URL)
+    canonical_is_indexed = models.BooleanField(null=True, blank=True, help_text="Index status of canonical URL")
+    canonical_index_status = models.CharField(max_length=100, null=True, blank=True)
+    canonical_coverage_state = models.CharField(max_length=100, null=True, blank=True)
 
     # Mobile vs Desktop
     mobile_friendly = models.BooleanField(default=False)
@@ -796,6 +860,344 @@ class SitemapHistory(models.Model):
         return f"Sitemap: {self.domain.domain_name} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
 
+# =============================================================================
+# Sitemap Editor Models
+# =============================================================================
+
+class SitemapEntry(models.Model):
+    """
+    Individual sitemap entry for editing.
+    Separate from Page model to allow editing before deployment.
+    """
+    CHANGEFREQ_CHOICES = [
+        ('always', 'Always'),
+        ('hourly', 'Hourly'),
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('monthly', 'Monthly'),
+        ('yearly', 'Yearly'),
+        ('never', 'Never'),
+    ]
+
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('pending_add', 'Pending Add'),
+        ('pending_remove', 'Pending Remove'),
+        ('pending_modify', 'Pending Modify'),
+    ]
+
+    # Relations
+    domain = models.ForeignKey(Domain, on_delete=models.CASCADE, related_name='sitemap_entries')
+    page = models.ForeignKey(
+        Page,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sitemap_entries',
+        help_text="Linked page (if exists)"
+    )
+
+    # Sitemap Entry Fields
+    loc = models.URLField(max_length=2048, help_text="URL location")
+    loc_hash = models.CharField(
+        max_length=64,
+        db_index=True,
+        editable=False,
+        help_text="SHA256 hash of loc for uniqueness constraint"
+    )
+    lastmod = models.DateField(null=True, blank=True, help_text="Last modification date")
+    changefreq = models.CharField(
+        max_length=20,
+        choices=CHANGEFREQ_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Change frequency"
+    )
+    priority = models.DecimalField(
+        max_digits=2,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        help_text="Priority (0.0-1.0)"
+    )
+
+    # Entry Status
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', db_index=True)
+
+    # Validation
+    is_valid = models.BooleanField(default=True)
+    validation_errors = models.JSONField(default=list, blank=True)
+
+    # AI Suggestions
+    ai_suggested = models.BooleanField(default=False, help_text="Entry suggested by AI")
+    ai_suggestion_reason = models.TextField(null=True, blank=True)
+
+    # URL Status (cached from HTTP check)
+    http_status_code = models.IntegerField(null=True, blank=True)
+    redirect_url = models.URLField(max_length=2048, null=True, blank=True)
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'seo_sitemap_entries'
+        ordering = ['domain', 'loc']
+        unique_together = [['domain', 'loc_hash']]
+        indexes = [
+            models.Index(fields=['domain', 'status']),
+            models.Index(fields=['domain', 'is_valid']),
+            models.Index(fields=['ai_suggested']),
+        ]
+        verbose_name_plural = 'Sitemap Entries'
+
+    def __str__(self):
+        return f"{self.loc} ({self.status})"
+
+    def save(self, *args, **kwargs):
+        """Auto-generate loc_hash before saving"""
+        import hashlib
+        if self.loc:
+            self.loc_hash = hashlib.sha256(self.loc.encode('utf-8')).hexdigest()
+        super().save(*args, **kwargs)
+
+    def to_xml_element(self):
+        """Generate XML element for sitemap"""
+        lines = ['  <url>']
+        lines.append(f'    <loc>{self.loc}</loc>')
+        if self.lastmod:
+            lines.append(f'    <lastmod>{self.lastmod.isoformat()}</lastmod>')
+        if self.changefreq:
+            lines.append(f'    <changefreq>{self.changefreq}</changefreq>')
+        if self.priority is not None:
+            lines.append(f'    <priority>{self.priority}</priority>')
+        lines.append('  </url>')
+        return '\n'.join(lines)
+
+
+class SitemapEditSession(models.Model):
+    """
+    Edit session for tracking sitemap changes.
+    Supports draft → preview → deploy workflow.
+    """
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('preview', 'Preview'),
+        ('validating', 'Validating'),
+        ('deploying', 'Deploying'),
+        ('deployed', 'Deployed'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    # Relations
+    domain = models.ForeignKey(Domain, on_delete=models.CASCADE, related_name='sitemap_edit_sessions')
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sitemap_edit_sessions'
+    )
+
+    # Session Info
+    name = models.CharField(max_length=200, null=True, blank=True, help_text="Optional session name")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', db_index=True)
+
+    # Change Summary
+    entries_added = models.IntegerField(default=0)
+    entries_removed = models.IntegerField(default=0)
+    entries_modified = models.IntegerField(default=0)
+    total_entries = models.IntegerField(default=0)
+
+    # AI Analysis Results
+    ai_issues_found = models.JSONField(default=list, blank=True, help_text="List of issues found by AI")
+    ai_suggestions = models.JSONField(default=list, blank=True, help_text="AI suggestions for improvements")
+    ai_analysis_completed_at = models.DateTimeField(null=True, blank=True)
+
+    # Deployment Info
+    deployment_commit_hash = models.CharField(max_length=40, null=True, blank=True)
+    deployment_message = models.TextField(null=True, blank=True)
+    deployment_error = models.TextField(null=True, blank=True)
+    deployed_at = models.DateTimeField(null=True, blank=True)
+
+    # Preview XML (cached)
+    preview_xml = models.TextField(null=True, blank=True, help_text="Generated XML preview")
+    preview_generated_at = models.DateTimeField(null=True, blank=True)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'seo_sitemap_edit_sessions'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['domain', 'status']),
+            models.Index(fields=['domain', '-created_at']),
+        ]
+        verbose_name_plural = 'Sitemap Edit Sessions'
+
+    def __str__(self):
+        name = self.name or f"Session #{self.id}"
+        return f"{name} ({self.domain.domain_name}) - {self.status}"
+
+    def get_changes_summary(self):
+        """Get summary of changes in this session"""
+        return {
+            'added': self.entries_added,
+            'removed': self.entries_removed,
+            'modified': self.entries_modified,
+            'total': self.total_entries,
+            'has_changes': self.entries_added > 0 or self.entries_removed > 0 or self.entries_modified > 0,
+        }
+
+
+class SitemapEntryChange(models.Model):
+    """
+    Audit trail for sitemap entry changes.
+    Tracks all modifications for rollback and history.
+    """
+    CHANGE_TYPE_CHOICES = [
+        ('add', 'Add'),
+        ('remove', 'Remove'),
+        ('modify', 'Modify'),
+    ]
+
+    SOURCE_CHOICES = [
+        ('manual', 'Manual Edit'),
+        ('ai_suggestion', 'AI Suggestion'),
+        ('bulk_import', 'Bulk Import'),
+        ('sync', 'Sync from Live'),
+    ]
+
+    # Relations
+    session = models.ForeignKey(
+        SitemapEditSession,
+        on_delete=models.CASCADE,
+        related_name='changes'
+    )
+    entry = models.ForeignKey(
+        SitemapEntry,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='change_history'
+    )
+
+    # Change Details
+    change_type = models.CharField(max_length=20, choices=CHANGE_TYPE_CHOICES)
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='manual')
+
+    # URL (kept even if entry is deleted)
+    url = models.URLField(max_length=2048)
+
+    # Values (for modify and rollback)
+    old_values = models.JSONField(null=True, blank=True, help_text="Values before change")
+    new_values = models.JSONField(null=True, blank=True, help_text="Values after change")
+
+    # AI related
+    ai_reason = models.TextField(null=True, blank=True, help_text="Reason if AI suggested")
+
+    # User who made the change
+    changed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sitemap_changes'
+    )
+
+    # Timestamp
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'seo_sitemap_entry_changes'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['session', '-created_at']),
+            models.Index(fields=['entry', '-created_at']),
+            models.Index(fields=['change_type']),
+        ]
+        verbose_name_plural = 'Sitemap Entry Changes'
+
+    def __str__(self):
+        return f"{self.change_type.upper()}: {self.url}"
+
+    def get_diff(self):
+        """Get diff between old and new values"""
+        if self.change_type == 'add':
+            return {'added': self.new_values}
+        elif self.change_type == 'remove':
+            return {'removed': self.old_values}
+        else:
+            # modify
+            diff = {}
+            old = self.old_values or {}
+            new = self.new_values or {}
+            all_keys = set(old.keys()) | set(new.keys())
+            for key in all_keys:
+                if old.get(key) != new.get(key):
+                    diff[key] = {'old': old.get(key), 'new': new.get(key)}
+            return diff
+
+
+class AIAnalysisCache(models.Model):
+    """
+    Cache for AI analysis results.
+    Reduces API calls by caching analysis for similar contexts.
+    """
+    ANALYSIS_TYPE_CHOICES = [
+        ('sitemap', 'Sitemap Analysis'),
+        ('seo_issues', 'SEO Issues Analysis'),
+        ('page_content', 'Page Content Analysis'),
+        ('full_domain', 'Full Domain Analysis'),
+    ]
+
+    # Relations
+    domain = models.ForeignKey(Domain, on_delete=models.CASCADE, related_name='ai_analysis_cache')
+    page = models.ForeignKey(Page, on_delete=models.CASCADE, null=True, blank=True, related_name='ai_analysis_cache')
+
+    # Analysis Info
+    analysis_type = models.CharField(max_length=30, choices=ANALYSIS_TYPE_CHOICES)
+    context_hash = models.CharField(max_length=64, db_index=True, help_text="Hash of input context for cache lookup")
+
+    # Results
+    analysis_result = models.JSONField(help_text="AI analysis result")
+    suggestions = models.JSONField(default=list, blank=True)
+    issues = models.JSONField(default=list, blank=True)
+
+    # API Usage
+    model_used = models.CharField(max_length=50, default='claude-sonnet-4-20250514')
+    tokens_used = models.IntegerField(default=0)
+    api_cost = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+
+    # Cache Control
+    expires_at = models.DateTimeField(help_text="Cache expiration time")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'seo_ai_analysis_cache'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['domain', 'analysis_type', 'context_hash']),
+            models.Index(fields=['expires_at']),
+        ]
+        verbose_name_plural = 'AI Analysis Cache'
+
+    def __str__(self):
+        return f"{self.analysis_type} for {self.domain.domain_name}"
+
+    def is_valid(self):
+        """Check if cache is still valid"""
+        return timezone.now() < self.expires_at
+
+
+# =============================================================================
+# SEO Analysis Report (existing)
+# =============================================================================
+
 class SEOAnalysisReport(models.Model):
     """
     SEO Analysis Report
@@ -843,3 +1245,132 @@ class SEOAnalysisReport(models.Model):
 
     def __str__(self):
         return f"SEO Report: {self.domain.domain_name} - {self.analyzed_at.strftime('%Y-%m-%d')}"
+
+
+class AIConversation(models.Model):
+    """
+    AI Conversation Session
+    Stores conversations with Claude AI for SEO analysis
+    """
+    CONVERSATION_TYPES = [
+        ('sitemap_analysis', 'Sitemap Analysis'),
+        ('seo_issues', 'SEO Issues Analysis'),
+        ('full_report', 'Full Report'),
+        ('general', 'General Question'),
+    ]
+
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('archived', 'Archived'),
+    ]
+
+    # Relationships
+    domain = models.ForeignKey(
+        Domain,
+        on_delete=models.CASCADE,
+        related_name='ai_conversations',
+        null=True,
+        blank=True,
+        help_text="Domain being analyzed (optional for general questions)"
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ai_conversations'
+    )
+
+    # Conversation info
+    title = models.CharField(max_length=200, blank=True)
+    conversation_type = models.CharField(
+        max_length=30,
+        choices=CONVERSATION_TYPES,
+        default='general'
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+
+    # Metadata
+    total_messages = models.IntegerField(default=0)
+    total_tokens_used = models.IntegerField(default=0)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_message_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'seo_ai_conversations'
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['domain', '-updated_at']),
+            models.Index(fields=['created_by', '-updated_at']),
+            models.Index(fields=['conversation_type']),
+        ]
+        verbose_name_plural = 'AI Conversations'
+
+    def __str__(self):
+        domain_name = self.domain.domain_name if self.domain else 'General'
+        return f"AI Chat: {domain_name} - {self.title or self.conversation_type}"
+
+    def save(self, *args, **kwargs):
+        if not self.title:
+            domain_name = self.domain.domain_name if self.domain else 'General'
+            self.title = f"{domain_name} - {self.get_conversation_type_display()}"
+        super().save(*args, **kwargs)
+
+
+class AIMessage(models.Model):
+    """
+    Individual message in an AI conversation
+    """
+    ROLE_CHOICES = [
+        ('user', 'User'),
+        ('assistant', 'Assistant'),
+        ('system', 'System'),
+    ]
+
+    MESSAGE_TYPES = [
+        ('text', 'Text'),
+        ('analysis', 'Analysis Result'),
+        ('suggestion', 'Suggestion'),
+        ('error', 'Error'),
+    ]
+
+    # Relationships
+    conversation = models.ForeignKey(
+        AIConversation,
+        on_delete=models.CASCADE,
+        related_name='messages'
+    )
+
+    # Message content
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    message_type = models.CharField(max_length=20, choices=MESSAGE_TYPES, default='text')
+    content = models.TextField(help_text="Message text content")
+
+    # Structured data (for analysis results)
+    structured_data = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Structured data like analysis results, suggestions"
+    )
+
+    # Token usage
+    input_tokens = models.IntegerField(default=0)
+    output_tokens = models.IntegerField(default=0)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'seo_ai_messages'
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['conversation', 'created_at']),
+        ]
+        verbose_name_plural = 'AI Messages'
+
+    def __str__(self):
+        preview = self.content[:50] + '...' if len(self.content) > 50 else self.content
+        return f"[{self.role}] {preview}"
