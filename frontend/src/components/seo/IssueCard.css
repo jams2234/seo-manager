@@ -1,0 +1,221 @@
+/* Issue Card */
+.issue-card {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #e5e7eb;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.issue-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.issue-card.fixed-issue {
+  border-left-color: #10b981;
+  background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%);
+}
+
+/* Issue Header */
+.issue-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.issue-severity {
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: white;
+  letter-spacing: 0.5px;
+}
+
+.auto-fix-badge {
+  padding: 3px 8px;
+  background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+  color: #3730a3;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #a5b4fc;
+}
+
+/* Deployment Badges */
+.deployment-badge {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: help;
+}
+
+.deployment-badge.verified {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+.deployment-badge.verified::before {
+  content: '\2705 '; /* check mark emoji */
+}
+
+.deployment-badge.needs-attention {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.deployment-badge.needs-attention::before {
+  content: '\26A0\FE0F '; /* warning emoji */
+}
+
+.deployment-badge.pending-verification {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.deployment-badge.pending-verification::before {
+  content: '\1F535 '; /* blue circle emoji */
+}
+
+.deployment-badge.db-only {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.deployment-badge.db-only::before {
+  content: '\26A0\FE0F '; /* warning emoji */
+}
+
+/* Issue Content */
+.issue-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.issue-message {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.issue-suggestion {
+  font-size: 13px;
+  color: #374151;
+  padding: 8px 12px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+/* Issue Values */
+.issue-values {
+  font-size: 13px;
+  margin-top: 8px;
+  padding: 10px;
+  background: #f9fafb;
+  border-radius: 4px;
+}
+
+.value-item {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.value-item:last-child {
+  margin-bottom: 0;
+}
+
+.value-label {
+  font-weight: 600;
+  color: #6b7280;
+  min-width: 70px;
+}
+
+.value-text {
+  color: #374151;
+  word-break: break-word;
+}
+
+.value-text.suggested {
+  color: #059669;
+  font-weight: 500;
+}
+
+/* Deployment Meta */
+.deployment-meta {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Action Buttons */
+.btn-auto-fix {
+  width: 100%;
+  padding: 10px;
+  margin-top: 12px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-auto-fix::before {
+  content: '\1F4BE'; /* floppy disk emoji */
+}
+
+.btn-auto-fix:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.btn-view-details {
+  width: 100%;
+  padding: 8px;
+  margin-top: 12px;
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-view-details::before {
+  content: '\1F4CB'; /* clipboard emoji */
+}
+
+.btn-view-details:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+}

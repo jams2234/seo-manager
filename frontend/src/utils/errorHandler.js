@@ -129,20 +129,86 @@ export const getErrorMessage = (error, fallback = '알 수 없는 오류가 발�
 };
 
 /**
- * Show error notification to user (can integrate with toast library)
+ * Show error notification to user
  * @param {Error|APIError|string} error - Error object or message
  * @param {Object} options - Additional options
+ * @param {Function} options.toast - Toast context from useToast hook
+ * @param {string} options.title - Optional title for toast
+ * @param {boolean} options.silent - If true, only log to console
  */
 export const showErrorNotification = (error, options = {}) => {
   const message = typeof error === 'string' ? error : getErrorMessage(error);
 
-  // For now, using alert (can be replaced with toast library)
   if (options.silent) {
     console.warn('[Silent Error]', message);
-  } else {
-    alert(message);
+    return message;
   }
 
+  // If toast function is provided, use it
+  if (options.toast) {
+    options.toast.error(message, { title: options.title });
+    return message;
+  }
+
+  // Fallback to alert (for backwards compatibility during migration)
+  alert(message);
+  return message;
+};
+
+/**
+ * Show success notification to user
+ * @param {string} message - Success message
+ * @param {Object} options - Additional options
+ * @param {Function} options.toast - Toast context from useToast hook
+ * @param {string} options.title - Optional title for toast
+ */
+export const showSuccessNotification = (message, options = {}) => {
+  // If toast function is provided, use it
+  if (options.toast) {
+    options.toast.success(message, { title: options.title });
+    return message;
+  }
+
+  // Fallback to alert
+  alert(message);
+  return message;
+};
+
+/**
+ * Show warning notification to user
+ * @param {string} message - Warning message
+ * @param {Object} options - Additional options
+ * @param {Function} options.toast - Toast context from useToast hook
+ * @param {string} options.title - Optional title for toast
+ */
+export const showWarningNotification = (message, options = {}) => {
+  // If toast function is provided, use it
+  if (options.toast) {
+    options.toast.warning(message, { title: options.title });
+    return message;
+  }
+
+  // Fallback to alert
+  alert(message);
+  return message;
+};
+
+/**
+ * Show info notification to user
+ * @param {string} message - Info message
+ * @param {Object} options - Additional options
+ * @param {Function} options.toast - Toast context from useToast hook
+ * @param {string} options.title - Optional title for toast
+ */
+export const showInfoNotification = (message, options = {}) => {
+  // If toast function is provided, use it
+  if (options.toast) {
+    options.toast.info(message, { title: options.title });
+    return message;
+  }
+
+  // Fallback to alert
+  alert(message);
   return message;
 };
 

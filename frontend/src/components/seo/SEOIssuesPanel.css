@@ -730,3 +730,167 @@
 .score-improved {
   animation: scoreUp 0.5s ease-out;
 }
+
+/* Fixed Issues Section */
+.fixed-issues-title {
+  font-weight: bold;
+  color: #059669;
+  margin-bottom: 8px;
+}
+
+.fixed-issues-stats {
+  font-size: 13px;
+  color: #065f46;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.stat-verified,
+.stat-needs-attention,
+.stat-pending,
+.stat-db-only,
+.stat-tip {
+  margin-bottom: 6px;
+}
+
+.stat-needs-attention {
+  color: #b45309;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stat-pending {
+  color: #1e40af;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stat-tip {
+  margin-top: 4px;
+  color: #6b7280;
+}
+
+/* Inline Action Buttons */
+.btn-inline-action {
+  padding: 4px 10px;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-inline-action:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-inline-action.warning {
+  background: #f59e0b;
+}
+
+.btn-inline-action.info {
+  background: #3b82f6;
+}
+
+/* Deploy Pending Button */
+.btn-deploy-pending {
+  width: 100%;
+  padding: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-deploy-pending:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* All Verified Message */
+.all-verified-message {
+  margin-top: 8px;
+  padding: 12px;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  border-radius: 6px;
+  text-align: center;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+.all-verified-message .message-title {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.all-verified-message .message-subtitle {
+  font-size: 13px;
+  margin-top: 4px;
+  opacity: 0.8;
+}
+
+/* All Deployed Message */
+.all-deployed-message {
+  margin-top: 8px;
+  padding: 12px;
+  background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+  border-radius: 6px;
+  text-align: center;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.all-deployed-message .message-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.all-deployed-message .message-subtitle {
+  font-size: 13px;
+  margin-bottom: 8px;
+  opacity: 0.9;
+}
+
+.btn-verify-full {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-verify-full:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.btn-verify-full:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* No Issues Subtext */
+.no-issues-subtext {
+  font-size: 14px;
+  color: #6b7280;
+  margin-top: 8px;
+}
