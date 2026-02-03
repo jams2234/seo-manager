@@ -370,3 +370,245 @@
 .category-manager::-webkit-scrollbar-thumb:hover {
   background: #9CA3AF;
 }
+
+/* Header Actions */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-clear-filter {
+  padding: 4px 10px;
+  background: #FEF3C7;
+  color: #D97706;
+  border: 1px solid #F59E0B;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-clear-filter:hover {
+  background: #FDE68A;
+  border-color: #D97706;
+}
+
+/* Group Summary */
+.group-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #F9FAFB;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #6B7280;
+}
+
+.filter-active {
+  background: #4F46E5;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Quick Add Section */
+.quick-add-section {
+  text-align: center;
+  padding: 24px;
+  background: #F9FAFB;
+  border-radius: 8px;
+  border: 2px dashed #D1D5DB;
+}
+
+.empty-message {
+  color: #6B7280;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.btn-add-group-quick {
+  padding: 10px 20px;
+  background: #4F46E5;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-add-group-quick:hover {
+  background: #4338CA;
+  transform: translateY(-1px);
+}
+
+/* Group Item Expanded */
+.group-item-expanded {
+  margin-bottom: 8px;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #F9FAFB;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.group-header:hover {
+  background: #F3F4F6;
+}
+
+.group-header.active-filter {
+  background: #EEF2FF;
+  border-left: 3px solid #4F46E5;
+}
+
+.group-expand-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 10px;
+  color: #6B7280;
+  transition: transform 0.2s;
+}
+
+.group-expand-btn:hover {
+  color: #374151;
+}
+
+.group-page-count {
+  font-size: 11px;
+  color: #9CA3AF;
+  margin-left: auto;
+}
+
+.filter-badge {
+  background: #4F46E5;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Group Pages List */
+.group-pages-list {
+  padding: 8px 12px 8px 32px;
+  background: white;
+  border-top: 1px solid #E5E7EB;
+}
+
+.page-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: #F9FAFB;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.page-item:hover {
+  background: #F3F4F6;
+}
+
+.page-item:last-child {
+  margin-bottom: 0;
+}
+
+.page-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.page-label {
+  flex: 1;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page-seo-score {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.page-seo-score.score-good {
+  background: #D1FAE5;
+  color: #059669;
+}
+
+.page-seo-score.score-medium {
+  background: #FEF3C7;
+  color: #D97706;
+}
+
+.page-seo-score.score-poor {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+.empty-pages {
+  text-align: center;
+  padding: 12px;
+  color: #9CA3AF;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Remove Page Button */
+.btn-remove-page {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #9CA3AF;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.page-item:hover .btn-remove-page {
+  opacity: 1;
+}
+
+.btn-remove-page:hover {
+  background: #FEE2E2;
+  border-color: #EF4444;
+  color: #DC2626;
+}
+
+.btn-remove-page:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}

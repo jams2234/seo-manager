@@ -15,6 +15,8 @@ import { useMemo } from 'react';
  * @param {Function} refreshTreeData - Callback to refresh tree data
  * @param {number} domainId - Domain ID for API calls
  * @param {Function} onOpenSEOPanel - Callback to open SEO panel
+ * @param {Function} onNodeSelect - Callback when node is clicked (for detail panel)
+ * @param {number} dataRefreshKey - Key that changes when data is refreshed (triggers group list refresh)
  * @returns {Array} Styled React Flow nodes
  */
 const useNodeStyling = (
@@ -25,7 +27,9 @@ const useNodeStyling = (
   editMode,
   refreshTreeData,
   domainId,
-  onOpenSEOPanel
+  onOpenSEOPanel,
+  onNodeSelect,
+  dataRefreshKey = 0
 ) => {
   return useMemo(() => {
     if (!nodes || nodes.length === 0) {
@@ -95,8 +99,12 @@ const useNodeStyling = (
           canonical_is_indexed: node.canonical_is_indexed,
           canonical_index_status: node.canonical_index_status,
           canonical_coverage_state: node.canonical_coverage_state,
+          // Group filter state
+          isFilteredOut: node.isFilteredOut || false,
           onUpdate: () => refreshTreeData(),
           onOpenSEOPanel: onOpenSEOPanel,
+          onNodeSelect: onNodeSelect,
+          dataRefreshKey: dataRefreshKey,
         },
       };
     });
@@ -109,6 +117,8 @@ const useNodeStyling = (
     refreshTreeData,
     domainId,
     onOpenSEOPanel,
+    onNodeSelect,
+    dataRefreshKey,
   ]);
 };
 

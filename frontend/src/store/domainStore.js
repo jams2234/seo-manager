@@ -140,8 +140,13 @@ const useDomainStore = create((set, get) => ({
   },
 
   // Optimized: Fetch domain and tree in parallel
-  fetchDomainWithTree: async (domainId) => {
-    set({ loading: true, error: null, treeData: null }); // Clear previous data
+  fetchDomainWithTree: async (domainId, clearTreeData = false) => {
+    // Only clear treeData on initial load, not on refresh (to preserve viewport)
+    if (clearTreeData) {
+      set({ loading: true, error: null, treeData: null });
+    } else {
+      set({ loading: true, error: null });
+    }
     try {
       // Fetch both in parallel
       const [domainResponse, treeResponse] = await Promise.all([

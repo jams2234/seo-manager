@@ -189,6 +189,31 @@
   margin-right: 8px;
 }
 
+/* Group Manager Content */
+.group-manager-content {
+  padding: 0;
+  display: block;
+}
+
+.group-manager-content .category-manager {
+  margin: 0;
+  box-shadow: none;
+  border-radius: 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.group-manager-content .category-manager-header {
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.group-manager-content .category-manager-header h3 {
+  font-size: 14px;
+  margin: 0;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .controls-toolbar {

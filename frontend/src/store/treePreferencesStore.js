@@ -32,6 +32,19 @@ const useTreePreferencesStore = create(
       autoConnectEnabled: true, // Default: enabled
       setAutoConnectEnabled: (autoConnectEnabled) => set({ autoConnectEnabled }),
 
+      // Panel visibility states (persist across refreshes)
+      showGroupManager: false,
+      setShowGroupManager: (showGroupManager) => set({ showGroupManager }),
+
+      showFilters: false,
+      setShowFilters: (showFilters) => set({ showFilters }),
+
+      showEdgeStyles: false,
+      setShowEdgeStyles: (showEdgeStyles) => set({ showEdgeStyles }),
+
+      showEditTools: true,
+      setShowEditTools: (showEditTools) => set({ showEditTools }),
+
       // Edge style configuration
       edgeStyle: {
         type: 'smoothstep', // 'smoothstep', 'step', 'straight', 'bezier'
@@ -48,6 +61,10 @@ const useTreePreferencesStore = create(
         filterMode: 'all',
         showHiddenNodes: false,
         autoConnectEnabled: true,
+        showGroupManager: false,
+        showFilters: false,
+        showEdgeStyles: false,
+        showEditTools: true,
         edgeStyle: {
           type: 'smoothstep',
           animated: false,
@@ -67,6 +84,10 @@ const useTreePreferencesStore = create(
         filterMode: state.filterMode,
         showHiddenNodes: state.showHiddenNodes,
         autoConnectEnabled: state.autoConnectEnabled,
+        showGroupManager: state.showGroupManager,
+        showFilters: state.showFilters,
+        showEdgeStyles: state.showEdgeStyles,
+        showEditTools: state.showEditTools,
         edgeStyle: state.edgeStyle,
       }),
     }

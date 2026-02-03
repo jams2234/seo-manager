@@ -44,9 +44,10 @@ const SubdomainTreeWithControls = ({ treeData, onNodeClick, selectedPageId, doma
 
   // Local state for edit controls
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [showGroupManager, setShowGroupManager] = useState(false);
   const [draggedPositions, setDraggedPositions] = useState({});
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [dataRefreshKey, setDataRefreshKey] = useState(0);
+  const [activeGroupFilter, setActiveGroupFilter] = useState(null);
 
   // Refresh tree data
   const refreshTreeData = useCallback(async () => {
@@ -54,6 +55,7 @@ const SubdomainTreeWithControls = ({ treeData, onNodeClick, selectedPageId, doma
     setIsRefreshing(true);
     try {
       await fetchDomainWithTree(domainId);
+      setDataRefreshKey(prev => prev + 1); // Increment to trigger node updates
     } finally {
       setIsRefreshing(false);
     }
@@ -125,8 +127,6 @@ const SubdomainTreeWithControls = ({ treeData, onNodeClick, selectedPageId, doma
         getUndoCount={() => getUndoCount(domainId)}
         getRedoCount={() => getRedoCount(domainId)}
         domainId={domainId}
-        showGroupManager={showGroupManager}
-        setShowGroupManager={setShowGroupManager}
         useAutoLayout={useAutoLayout}
         setUseAutoLayout={setUseAutoLayout}
         layoutDirection={layoutDirection}
@@ -137,6 +137,9 @@ const SubdomainTreeWithControls = ({ treeData, onNodeClick, selectedPageId, doma
         setShowHiddenNodes={setShowHiddenNodes}
         edgeStyle={edgeStyle}
         setEdgeStyle={setEdgeStyle}
+        refreshTreeData={refreshTreeData}
+        activeGroupFilter={activeGroupFilter}
+        onGroupFilter={setActiveGroupFilter}
       />
 
       {/* Tree Canvas */}
@@ -150,8 +153,9 @@ const SubdomainTreeWithControls = ({ treeData, onNodeClick, selectedPageId, doma
           setHasUnsavedChanges={setHasUnsavedChanges}
           draggedPositions={draggedPositions}
           setDraggedPositions={setDraggedPositions}
-          showGroupManager={showGroupManager}
           refreshTreeData={refreshTreeData}
+          dataRefreshKey={dataRefreshKey}
+          activeGroupFilter={activeGroupFilter}
         />
       </div>
     </div>

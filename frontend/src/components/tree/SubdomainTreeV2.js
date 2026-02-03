@@ -15,9 +15,8 @@ import ReactFlow, {
 import dagre from 'dagre';
 import 'reactflow/dist/style.css';
 import CustomNode from './CustomNode';
-import CategoryManager from './CategoryManager';
-import TreeLegend from './TreeLegend';
 import LoadingOverlay from './LoadingOverlay';
+import NodeDetailPanel from './NodeDetailPanel';
 import SEOIssuesPanel from '../seo/SEOIssuesPanel';
 import useDomainStore from '../../store/domainStore';
 import useTreePreferencesStore from '../../store/treePreferencesStore';
@@ -28,6 +27,7 @@ import useEdgeStyling from '../../hooks/useEdgeStyling';
 import useTreeLayout from '../../hooks/useTreeLayout';
 import useTreeAPI from '../../hooks/useTreeAPI';
 import useTreeDragDrop from '../../hooks/useTreeDragDrop';
+import useViewportPreservation from '../../hooks/useViewportPreservation';
 import { NODE_LAYOUT, INTERACTION, VIEWPORT, DEFAULT_DIRECTION } from '../../constants/treeConfig';
 import './SubdomainTree.css';
 
@@ -82,8 +82,9 @@ const SubdomainTreeV2 = ({
   setHasUnsavedChanges: setHasUnsavedChangesExternal,
   draggedPositions: draggedPositionsExternal,
   setDraggedPositions: setDraggedPositionsExternal,
-  showGroupManager: showGroupManagerExternal,
   refreshTreeData: refreshTreeDataExternal,
+  dataRefreshKey = 0,
+  activeGroupFilter = null,
 }) => {
   // Get fetchDomainWithTree from store for refreshing
   const { fetchDomainWithTree } = useDomainStore();
@@ -124,19 +125,20 @@ const SubdomainTreeV2 = ({
   // Local state (not persisted) - Use external if provided, otherwise internal
   const [hasUnsavedChangesInternal, setHasUnsavedChangesInternal] = useState(false);
   const [draggedPositionsInternal, setDraggedPositionsInternal] = useState({});
-  const [showGroupManagerInternal, setShowGroupManagerInternal] = useState(false);
   const [highlightedNode, setHighlightedNode] = useState(null);
 
   // SEO Panel state - Single panel for entire tree
   const [showSEOPanel, setShowSEOPanel] = useState(false);
   const [selectedPageForSEO, setSelectedPageForSEO] = useState(null);
 
+  // Node detail panel state - Shows clicked node info in left panel
+  const [selectedNodeData, setSelectedNodeData] = useState(null);
+
   // Use external state if provided, otherwise use internal
   const hasUnsavedChanges = hasUnsavedChangesInternal;
   const setHasUnsavedChanges = setHasUnsavedChangesExternal || setHasUnsavedChangesInternal;
   const draggedPositions = draggedPositionsExternal || draggedPositionsInternal;
   const setDraggedPositions = setDraggedPositionsExternal || setDraggedPositionsInternal;
-  const showGroupManager = showGroupManagerExternal !== undefined ? showGroupManagerExternal : showGroupManagerInternal;
 
   // Snap distance (constant)
   const snapDistance = INTERACTION.SNAP_DISTANCE;
@@ -151,6 +153,11 @@ const SubdomainTreeV2 = ({
   const handleOpenSEOPanel = useCallback((pageId) => {
     setSelectedPageForSEO(pageId);
     setShowSEOPanel(true);
+  }, []);
+
+  // Handle node click - Show details in left panel
+  const handleNodeSelect = useCallback((nodeData) => {
+    setSelectedNodeData(nodeData);
   }, []);
 
   // API operations hook
@@ -178,7 +185,8 @@ const SubdomainTreeV2 = ({
   const filteredNodes = useTreeFiltering(
     treeData?.nodes || [],
     filterMode,
-    showHiddenNodes
+    showHiddenNodes,
+    activeGroupFilter
   );
 
   // Step 2: Style nodes
@@ -190,7 +198,9 @@ const SubdomainTreeV2 = ({
     editMode,
     refreshTreeData,
     domainId,
-    handleOpenSEOPanel
+    handleOpenSEOPanel,
+    handleNodeSelect,
+    dataRefreshKey
   );
 
   // Step 3: Style edges
@@ -213,6 +223,19 @@ const SubdomainTreeV2 = ({
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // Viewport preservation hook - preserves position during data refreshes
+  const { onInit, onMoveEnd } = useViewportPreservation(initialNodes);
+
+  // Sync nodes state when initialNodes changes (e.g., after data refresh)
+  useEffect(() => {
+    setNodes(initialNodes);
+  }, [initialNodes, setNodes]);
+
+  // Sync edges state when initialEdges changes
+  useEffect(() => {
+    setEdges(initialEdges);
+  }, [initialEdges, setEdges]);
 
   const onNodeClickHandler = useCallback(
     (event, node) => {
@@ -457,18 +480,14 @@ const SubdomainTreeV2 = ({
         onNodeDragStop={onNodeDragStop}
         onConnect={onConnect}
         onEdgesDelete={onEdgesDelete}
+        onInit={onInit}
+        onMoveEnd={onMoveEnd}
         nodeTypes={nodeTypes}
         nodesDraggable={editMode && !useAutoLayout}
         edgesUpdatable={editMode}
         edgesFocusable={editMode}
         connectionMode="loose"
-        fitView
-        fitViewOptions={{
-          padding: 0.2,
-          includeHiddenNodes: false,
-          minZoom: 0.1,
-          maxZoom: 1.0,
-        }}
+        fitView={false}
         minZoom={VIEWPORT.MIN_ZOOM}
         maxZoom={VIEWPORT.MAX_ZOOM}
         defaultViewport={{ x: VIEWPORT.DEFAULT_X, y: VIEWPORT.DEFAULT_Y, zoom: VIEWPORT.DEFAULT_ZOOM }}
@@ -490,6 +509,8 @@ const SubdomainTreeV2 = ({
         />
       </ReactFlow>
 
+      {/* Node Detail Panel - Shows clicked node info */}
+      <NodeDetailPanel nodeData={selectedNodeData} />
 
       {/* No Filter Results Message */}
       {hasNoFilteredResults && (
@@ -514,35 +535,11 @@ const SubdomainTreeV2 = ({
             {filterMode === 'subdomains' && '서브도메인이 없습니다. 다른 필터를 선택하세요.'}
             {filterMode === 'good' && 'SEO 점수 90점 이상인 페이지가 없습니다.'}
             {filterMode === 'needs-improvement' && 'SEO 점수 70점 미만인 페이지가 없습니다.'}
+            {activeGroupFilter && '해당 그룹에 속한 페이지가 없습니다.'}
           </p>
           <p style={{ margin: '12px 0 0 0', color: '#9CA3AF', fontSize: '12px' }}>
             💡 상단의 필터 버튼으로 다른 필터를 선택할 수 있습니다
           </p>
-        </div>
-      )}
-
-      {/* Tree Legend */}
-      <TreeLegend
-        autoConnectEnabled={autoConnectEnabled}
-        editMode={editMode}
-      />
-
-
-      {/* Category & Group Manager */}
-      {editMode && showGroupManager && domainId && (
-        <div style={{
-          position: 'absolute',
-          top: '80px',
-          right: '16px',
-          width: '380px',
-          maxHeight: '600px',
-          overflow: 'auto',
-          zIndex: 10
-        }}>
-          <CategoryManager
-            domainId={domainId}
-            onUpdate={() => refreshTreeData()}
-          />
         </div>
       )}
 

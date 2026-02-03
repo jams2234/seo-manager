@@ -2,7 +2,9 @@
  * TreeControlPanel Component
  * Inline toolbar layout for better canvas visibility
  */
-import React, { useState } from 'react';
+import React from 'react';
+import CategoryManager from './CategoryManager';
+import useTreePreferencesStore from '../../store/treePreferencesStore';
 import './TreeControlPanel.css';
 
 const TreeControlPanel = ({
@@ -20,8 +22,6 @@ const TreeControlPanel = ({
   getUndoCount,
   getRedoCount,
   domainId,
-  showGroupManager,
-  setShowGroupManager,
   useAutoLayout,
   setUseAutoLayout,
   layoutDirection,
@@ -32,10 +32,21 @@ const TreeControlPanel = ({
   setShowHiddenNodes,
   edgeStyle,
   setEdgeStyle,
+  refreshTreeData,
+  activeGroupFilter,
+  onGroupFilter,
 }) => {
-  const [showEditTools, setShowEditTools] = useState(true);
-  const [showFilters, setShowFilters] = useState(false);
-  const [showEdgeStyles, setShowEdgeStyles] = useState(false);
+  // Use Zustand store for panel visibility (persisted across refreshes)
+  const {
+    showEditTools,
+    setShowEditTools,
+    showFilters,
+    setShowFilters,
+    showEdgeStyles,
+    setShowEdgeStyles,
+    showGroupManager,
+    setShowGroupManager,
+  } = useTreePreferencesStore();
 
   return (
     <div className="tree-controls-v2">
@@ -172,14 +183,6 @@ const TreeControlPanel = ({
             </button>
 
             <button
-              className={`control-btn-v2 ${showGroupManager ? 'active' : ''}`}
-              onClick={() => setShowGroupManager(!showGroupManager)}
-              title="그룹 관리"
-            >
-              📁 그룹 관리
-            </button>
-
-            <button
               className="control-btn-v2"
               onClick={handleUndo}
               disabled={!canUndo(domainId)}
@@ -269,6 +272,30 @@ const TreeControlPanel = ({
               >
                 🏷️ 라벨
               </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Group Management Section */}
+      {editMode && (
+        <div className="expandable-section">
+          <button
+            className="section-toggle-btn"
+            onClick={() => setShowGroupManager(!showGroupManager)}
+          >
+            <span>그룹 관리</span>
+            <span>{showGroupManager ? '▼' : '▶'}</span>
+          </button>
+
+          {showGroupManager && domainId && (
+            <div className="section-content group-manager-content">
+              <CategoryManager
+                domainId={domainId}
+                onUpdate={refreshTreeData}
+                onGroupFilter={onGroupFilter}
+                activeGroupFilter={activeGroupFilter}
+              />
             </div>
           )}
         </div>
