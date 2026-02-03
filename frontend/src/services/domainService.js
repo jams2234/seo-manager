@@ -25,6 +25,21 @@ export const domainService = {
   // Get domain tree structure
   getTree: (id) => apiClient.get(`/domains/${id}/tree/`),
 
+  // Get domain with tree data combined
+  getDomainWithTree: async (id) => {
+    const [domainRes, treeRes] = await Promise.all([
+      apiClient.get(`/domains/${id}/`),
+      apiClient.get(`/domains/${id}/tree/`),
+    ]);
+    return {
+      ...domainRes,
+      data: {
+        ...domainRes.data,
+        tree_data: treeRes.data,
+      },
+    };
+  },
+
   // Delete domain
   deleteDomain: (id) => apiClient.delete(`/domains/${id}/`),
 

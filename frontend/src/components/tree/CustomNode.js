@@ -335,6 +335,22 @@ const CustomNode = ({ data }) => {
         🔗 {getTruncatedUrl(data.url)}
       </div>
 
+      {/* Quick Actions - Always visible */}
+      <div className="node-quick-actions">
+        <button
+          className="node-edit-btn seo-analysis-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (data.onOpenSEOPanel) {
+              data.onOpenSEOPanel(data.pageId);
+            }
+          }}
+          title="SEO 분석"
+        >
+          🔍
+        </button>
+      </div>
+
       {/* Edit Mode Controls */}
       {data.editMode && !isEditingLabel && (
         <div className="node-edit-controls">
@@ -351,18 +367,6 @@ const CustomNode = ({ data }) => {
             title={data.isVisible === false ? "페이지 보이기" : "페이지 숨기기"}
           >
             {data.isVisible === false ? '👁️‍🗨️' : '👁️'}
-          </button>
-          <button
-            className="node-edit-btn seo-analysis-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (data.onOpenSEOPanel) {
-                data.onOpenSEOPanel(data.pageId);
-              }
-            }}
-            title="SEO 분석"
-          >
-            🔍
           </button>
           <select
             className="node-group-select"

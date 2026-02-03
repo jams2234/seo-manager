@@ -511,7 +511,10 @@ const SubdomainTreeV2 = ({
       </ReactFlow>
 
       {/* Node Detail Panel - Shows clicked node info */}
-      <NodeDetailPanel nodeData={selectedNodeData} />
+      <NodeDetailPanel
+        nodeData={selectedNodeData}
+        onClose={() => setSelectedNodeData(null)}
+      />
 
       {/* No Filter Results Message */}
       {hasNoFilteredResults && (

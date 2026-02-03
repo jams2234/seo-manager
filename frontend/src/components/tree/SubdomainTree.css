@@ -7,10 +7,24 @@
   overflow: hidden;
 }
 
+/* 줌/스케일링 시 화질 개선 */
+.subdomain-tree .react-flow__viewport {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
 .react-flow__node {
   cursor: pointer;
   /* GPU 가속 활성화 */
   will-change: transform;
+  /* 화질 개선 - 텍스트/이미지 선명도 */
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* 드래그 중이 아닐 때만 transition 적용 */

@@ -16,6 +16,7 @@ from .sitemap_editor import (
     SitemapEntryChangeViewSet,
 )
 from .sitemap_ai import SitemapAIViewSet, AIConversationViewSet
+from .workspace import WorkspaceViewSet
 
 __all__ = [
     'DomainViewSet',
@@ -35,4 +36,6 @@ __all__ = [
     # Sitemap AI
     'SitemapAIViewSet',
     'AIConversationViewSet',
+    # Workspace
+    'WorkspaceViewSet',
 ]

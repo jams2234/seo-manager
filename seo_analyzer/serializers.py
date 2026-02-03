@@ -939,3 +939,182 @@ class AIAnalyzeRequestSerializer(serializers.Serializer):
         allow_null=True,
         help_text="Existing conversation ID (creates new if not provided)"
     )
+
+
+# =============================================================================
+# Workspace Serializers
+# =============================================================================
+
+from .models import Workspace, WorkspaceTab
+
+
+class WorkspaceTabSerializer(serializers.ModelSerializer):
+    """Serializer for WorkspaceTab model"""
+    domain_name = serializers.CharField(source='domain.domain_name', read_only=True)
+    display_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = WorkspaceTab
+        fields = [
+            'id',
+            'workspace',
+            'domain',
+            'domain_name',
+            'name',
+            'display_name',
+            'order',
+            'is_active',
+            'viewport',
+            'preferences',
+            'custom_positions',
+            'has_unsaved_changes',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_display_name(self, obj):
+        return obj.get_display_name()
+
+
+class WorkspaceTabCreateSerializer(serializers.Serializer):
+    """Serializer for creating a new tab"""
+    domain_id = serializers.IntegerField(help_text="Domain ID to add as tab")
+    name = serializers.CharField(max_length=100, required=False, allow_blank=True, help_text="Custom tab name")
+    is_active = serializers.BooleanField(default=True, help_text="Make this tab active")
+
+
+class WorkspaceTabUpdateSerializer(serializers.Serializer):
+    """Serializer for updating tab state"""
+    name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    is_active = serializers.BooleanField(required=False)
+    viewport = serializers.DictField(required=False, help_text="{x, y, zoom}")
+    preferences = serializers.DictField(required=False)
+    custom_positions = serializers.DictField(required=False)
+    has_unsaved_changes = serializers.BooleanField(required=False)
+
+
+class WorkspaceTabReorderSerializer(serializers.Serializer):
+    """Serializer for reordering tabs"""
+    tab_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        help_text="Ordered list of tab IDs"
+    )
+
+
+class WorkspaceSerializer(serializers.ModelSerializer):
+    """Serializer for Workspace model"""
+    tabs = WorkspaceTabSerializer(many=True, read_only=True)
+    tab_count = serializers.IntegerField(read_only=True)
+    active_tab_id = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Workspace
+        fields = [
+            'id',
+            'name',
+            'description',
+            'is_default',
+            'tabs',
+            'tab_count',
+            'active_tab_id',
+            'created_at',
+            'updated_at',
+            'last_opened_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'last_opened_at']
+
+    def get_active_tab_id(self, obj):
+        active_tab = obj.get_active_tab()
+        return active_tab.id if active_tab else None
+
+
+class WorkspaceListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for listing workspaces"""
+    tab_count = serializers.IntegerField(read_only=True)
+    domain_names = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Workspace
+        fields = [
+            'id',
+            'name',
+            'description',
+            'is_default',
+            'tab_count',
+            'domain_names',
+            'created_at',
+            'updated_at',
+            'last_opened_at',
+        ]
+
+    def get_domain_names(self, obj):
+        """Get list of domain names in this workspace"""
+        return list(obj.tabs.values_list('domain__domain_name', flat=True)[:5])
+
+
+class WorkspaceCreateSerializer(serializers.Serializer):
+    """Serializer for creating a new workspace"""
+    name = serializers.CharField(max_length=100, help_text="Workspace name")
+    description = serializers.CharField(required=False, allow_blank=True)
+    is_default = serializers.BooleanField(default=False)
+    initial_domain_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        help_text="List of domain IDs to add as initial tabs"
+    )
+
+
+# =============================================================================
+# Canvas Tab Serializers (Per-Domain Tabs)
+# =============================================================================
+
+from .models import CanvasTab
+
+
+class CanvasTabSerializer(serializers.ModelSerializer):
+    """Serializer for CanvasTab model"""
+    can_edit = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CanvasTab
+        fields = [
+            'id',
+            'domain',
+            'name',
+            'is_main',
+            'order',
+            'is_active',
+            'viewport',
+            'custom_positions',
+            'can_edit',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'domain', 'is_main', 'can_edit', 'created_at', 'updated_at']
+
+    def get_can_edit(self, obj):
+        return obj.can_edit()
+
+
+class CanvasTabCreateSerializer(serializers.Serializer):
+    """Serializer for creating a new canvas tab"""
+    name = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+
+    def validate_name(self, value):
+        if value and value.lower() == 'main':
+            raise serializers.ValidationError("'main'은 예약된 이름입니다.")
+        return value
+
+
+class CanvasTabUpdateSerializer(serializers.Serializer):
+    """Serializer for updating a canvas tab"""
+    name = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    viewport = serializers.JSONField(required=False)
+    custom_positions = serializers.JSONField(required=False)
+    is_active = serializers.BooleanField(required=False)
+
+    def validate_name(self, value):
+        if value and value.lower() == 'main':
+            raise serializers.ValidationError("'main'은 예약된 이름입니다.")
+        return value

@@ -21,7 +21,10 @@ from .views import (
     # Sitemap AI
     SitemapAIViewSet,
     AIConversationViewSet,
+    # Workspace
+    WorkspaceViewSet,
 )
+from .views.canvas_tab import CanvasTabViewSet
 
 # Create router and register viewsets
 router = DefaultRouter()
@@ -50,5 +53,11 @@ router.register(r'sitemap-ai', SitemapAIViewSet, basename='sitemapai')
 
 # AI Chat routes
 router.register(r'ai-chat/conversations', AIConversationViewSet, basename='aiconversation')
+
+# Workspace routes
+router.register(r'workspaces', WorkspaceViewSet, basename='workspace')
+
+# Canvas Tab routes (per-domain tabs)
+router.register(r'canvas-tabs', CanvasTabViewSet, basename='canvastab')
 
 urlpatterns = router.urls

@@ -35,6 +35,7 @@ const TreeControlPanel = ({
   refreshTreeData,
   activeGroupFilter,
   onGroupFilter,
+  isMainTab = false,
 }) => {
   // Use Zustand store for panel visibility (persisted across refreshes)
   const {
@@ -55,11 +56,12 @@ const TreeControlPanel = ({
         {/* Edit Mode Group */}
         <div className="toolbar-group">
           <button
-            className={`control-btn-v2 edit-mode-btn ${editMode ? 'active' : ''}`}
-            onClick={() => setEditMode(!editMode)}
-            title={editMode ? "편집 완료" : "편집 모드"}
+            className={`control-btn-v2 edit-mode-btn ${editMode ? 'active' : ''} ${isMainTab ? 'disabled' : ''}`}
+            onClick={() => !isMainTab && setEditMode(!editMode)}
+            disabled={isMainTab}
+            title={isMainTab ? "main 탭은 편집 불가 (읽기 전용)" : editMode ? "편집 완료" : "편집 모드"}
           >
-            {editMode ? '🔒 편집 완료' : '✏️ 편집'}
+            {isMainTab ? '🔒 읽기 전용' : editMode ? '🔒 편집 완료' : '✏️ 편집'}
           </button>
 
           {editMode && hasUnsavedChanges && (

@@ -8,15 +8,15 @@
  * Controls the size and spacing of nodes in the tree visualization
  */
 export const NODE_LAYOUT = {
-  // Individual node dimensions
-  WIDTH: 320,
-  HEIGHT: 240,
+  // Individual node dimensions (should match actual rendered size including edit mode)
+  WIDTH: 360,
+  HEIGHT: 540,             // Matches min-height + padding to accommodate edit controls
 
   // Dagre layout spacing
-  NODE_SEPARATION: 200,    // Horizontal spacing between nodes at same level
-  RANK_SEPARATION: 300,    // Vertical spacing between different levels
-  MARGIN_X: 100,           // Left/right canvas margins
-  MARGIN_Y: 100,           // Top/bottom canvas margins
+  NODE_SEPARATION: 60,     // Horizontal spacing between nodes at same level
+  RANK_SEPARATION: 80,     // Vertical spacing between different levels
+  MARGIN_X: 200,           // Left/right canvas margins
+  MARGIN_Y: 200,           // Top/bottom canvas margins
 };
 
 /**

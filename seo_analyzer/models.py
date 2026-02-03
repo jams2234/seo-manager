@@ -1557,3 +1557,272 @@ class AIMessage(models.Model):
     def __str__(self):
         preview = self.content[:50] + '...' if len(self.content) > 50 else self.content
         return f"[{self.role}] {preview}"
+
+
+# =============================================================================
+# Tree Workspace Models
+# =============================================================================
+
+class Workspace(models.Model):
+    """
+    Tree Workspace - 여러 도메인 트리를 탭으로 관리하는 워크스페이스
+    사용자가 여러 트리를 조합하여 편집하고 저장할 수 있음
+    """
+    # Owner
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='tree_workspaces',
+        null=True,
+        blank=True,
+        help_text="워크스페이스 소유자"
+    )
+
+    # Basic Info
+    name = models.CharField(max_length=100, help_text="워크스페이스 이름")
+    description = models.TextField(null=True, blank=True, help_text="워크스페이스 설명")
+
+    # Settings
+    is_default = models.BooleanField(
+        default=False,
+        help_text="기본 워크스페이스 여부 (로그인 시 자동 로드)"
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_opened_at = models.DateTimeField(null=True, blank=True, help_text="마지막 열람 시간")
+
+    class Meta:
+        db_table = 'seo_workspaces'
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['owner', '-updated_at']),
+            models.Index(fields=['owner', 'is_default']),
+        ]
+        verbose_name = 'Workspace'
+        verbose_name_plural = 'Workspaces'
+
+    def __str__(self):
+        return f"{self.name}"
+
+    def save(self, *args, **kwargs):
+        # 기본 워크스페이스 설정 시 다른 기본 워크스페이스 해제
+        if self.is_default and self.owner:
+            Workspace.objects.filter(owner=self.owner, is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
+    @property
+    def tab_count(self):
+        """탭 개수"""
+        return self.tabs.count()
+
+    def get_active_tab(self):
+        """현재 활성 탭 반환"""
+        return self.tabs.filter(is_active=True).first()
+
+
+class WorkspaceTab(models.Model):
+    """
+    Workspace Tab - 워크스페이스 내 개별 탭
+    각 탭은 하나의 도메인 트리를 표시하며 독립적인 뷰포트/설정을 가짐
+    """
+    # Relations
+    workspace = models.ForeignKey(
+        Workspace,
+        on_delete=models.CASCADE,
+        related_name='tabs',
+        help_text="소속 워크스페이스"
+    )
+    domain = models.ForeignKey(
+        Domain,
+        on_delete=models.CASCADE,
+        related_name='workspace_tabs',
+        help_text="표시할 도메인"
+    )
+
+    # Tab Settings
+    name = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="커스텀 탭 이름 (비어있으면 도메인명 사용)"
+    )
+    order = models.PositiveIntegerField(default=0, help_text="탭 순서")
+    is_active = models.BooleanField(default=False, help_text="현재 활성 탭")
+
+    # Viewport State (React Flow 줌/팬 상태)
+    viewport = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="뷰포트 상태 {x, y, zoom}"
+    )
+
+    # Tab-specific Preferences (필터, 레이아웃 등)
+    preferences = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="탭별 설정 {filterMode, layoutDirection, showHiddenNodes, ...}"
+    )
+
+    # Custom Node Positions (도메인 원본과 별개로 탭에서만 사용)
+    custom_positions = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="커스텀 노드 위치 {nodeId: {x, y}, ...}"
+    )
+
+    # Unsaved Changes Tracking
+    has_unsaved_changes = models.BooleanField(
+        default=False,
+        help_text="미저장 변경사항 존재 여부"
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'seo_workspace_tabs'
+        ordering = ['workspace', 'order']
+        indexes = [
+            models.Index(fields=['workspace', 'order']),
+            models.Index(fields=['workspace', 'is_active']),
+        ]
+        verbose_name = 'Workspace Tab'
+        verbose_name_plural = 'Workspace Tabs'
+
+    def __str__(self):
+        tab_name = self.name or self.domain.domain_name
+        return f"{self.workspace.name} - {tab_name}"
+
+    def save(self, *args, **kwargs):
+        # 활성 탭 설정 시 같은 워크스페이스의 다른 활성 탭 해제
+        if self.is_active:
+            WorkspaceTab.objects.filter(
+                workspace=self.workspace,
+                is_active=True
+            ).exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
+
+    def get_display_name(self):
+        """표시용 이름 반환"""
+        return self.name or self.domain.domain_name
+
+    def update_viewport(self, x, y, zoom):
+        """뷰포트 상태 업데이트"""
+        self.viewport = {'x': x, 'y': y, 'zoom': zoom}
+        self.save(update_fields=['viewport', 'updated_at'])
+
+    def update_preferences(self, preferences_dict):
+        """탭 설정 업데이트"""
+        self.preferences.update(preferences_dict)
+        self.save(update_fields=['preferences', 'updated_at'])
+
+    def update_custom_positions(self, positions_dict):
+        """커스텀 노드 위치 업데이트"""
+        self.custom_positions.update(positions_dict)
+        self.has_unsaved_changes = True
+        self.save(update_fields=['custom_positions', 'has_unsaved_changes', 'updated_at'])
+
+    def clear_unsaved_changes(self):
+        """미저장 플래그 초기화"""
+        self.has_unsaved_changes = False
+        self.save(update_fields=['has_unsaved_changes', 'updated_at'])
+
+
+# =============================================================================
+# Canvas Tab Models (Per-Domain)
+# =============================================================================
+
+class CanvasTab(models.Model):
+    """
+    Canvas Tab - 도메인별 캔버스 탭
+    main 탭: 읽기 전용, 실제 배포된 트리 그대로 표시
+    커스텀 탭: 편집 가능, 커스텀 위치/뷰포트 저장
+    """
+    # Domain relation
+    domain = models.ForeignKey(
+        Domain,
+        on_delete=models.CASCADE,
+        related_name='canvas_tabs',
+        help_text="소속 도메인"
+    )
+
+    # Tab Settings
+    name = models.CharField(
+        max_length=100,
+        help_text="탭 이름 (main, 2, 3, ...)"
+    )
+    is_main = models.BooleanField(
+        default=False,
+        help_text="메인 탭 여부 (메인 탭은 읽기 전용)"
+    )
+    order = models.PositiveIntegerField(default=0, help_text="탭 순서")
+    is_active = models.BooleanField(default=False, help_text="현재 활성 탭")
+
+    # Viewport State (React Flow 줌/팬 상태)
+    viewport = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="뷰포트 상태 {x, y, zoom}"
+    )
+
+    # Custom Node Positions (main 탭에서는 사용 안 함)
+    custom_positions = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="커스텀 노드 위치 {pageId: {x, y}, ...}"
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'seo_canvas_tabs'
+        ordering = ['domain', 'order']
+        indexes = [
+            models.Index(fields=['domain', 'order']),
+            models.Index(fields=['domain', 'is_active']),
+        ]
+        verbose_name = 'Canvas Tab'
+        verbose_name_plural = 'Canvas Tabs'
+        constraints = [
+            # 도메인당 main 탭은 하나만
+            models.UniqueConstraint(
+                fields=['domain'],
+                condition=models.Q(is_main=True),
+                name='unique_main_tab_per_domain'
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.domain.domain_name} - {self.name}"
+
+    def save(self, *args, **kwargs):
+        # 활성 탭 설정 시 같은 도메인의 다른 활성 탭 해제
+        if self.is_active:
+            CanvasTab.objects.filter(
+                domain=self.domain,
+                is_active=True
+            ).exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_or_create_main_tab(cls, domain):
+        """main 탭 가져오거나 생성"""
+        tab, created = cls.objects.get_or_create(
+            domain=domain,
+            is_main=True,
+            defaults={
+                'name': 'main',
+                'order': 0,
+                'is_active': True,
+            }
+        )
+        return tab
+
+    def can_edit(self):
+        """편집 가능 여부 (main 탭은 편집 불가)"""
+        return not self.is_main

@@ -51,6 +51,12 @@ const HomePage = () => {
           >
             {showInput ? 'Cancel' : '+ Add New Domain'}
           </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => navigate('/workspace')}
+          >
+            Tree Workspace
+          </button>
         </div>
 
         {showInput && (
