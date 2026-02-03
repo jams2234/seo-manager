@@ -233,7 +233,7 @@ const CustomNode = ({ data }) => {
   return (
     <div
       ref={nodeRef}
-      className={`custom-node ${scoreColor} ${data.selected ? 'selected' : ''} ${isHovered ? 'hovered' : ''} ${data.isFilteredOut ? 'filtered-out' : ''} depth-${data.depthLevel || 0}`}
+      className={`custom-node ${scoreColor} ${data.selected ? 'selected' : ''} ${isHovered ? 'hovered' : ''} ${data.isDropTarget ? 'drop-target' : ''} ${data.isFilteredOut ? 'filtered-out' : ''} depth-${data.depthLevel || 0}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={handleNodeClick}

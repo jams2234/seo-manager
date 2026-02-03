@@ -6,12 +6,15 @@
   min-width: 320px;
   max-width: 400px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 특정 속성만 transition (성능 최적화) */
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
   cursor: pointer;
   position: relative;
   overflow: visible;
   border-left-width: 6px;
   z-index: 1;
+  /* GPU 가속 */
+  will-change: transform, box-shadow;
 }
 
 .custom-node::before {
@@ -379,24 +382,13 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3), 0 2px 4px rgba(102, 126, 234, 0.2);
-  transition: all 0.3s;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   position: relative;
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
 }
 
 .custom-node:hover .score-circle {
   transform: scale(1.1);
   box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4), 0 3px 6px rgba(102, 126, 234, 0.3);
-  animation: none;
 }
 
 .custom-node.good .score-circle {

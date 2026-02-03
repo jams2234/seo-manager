@@ -55,26 +55,11 @@ const findNearestNode = (position, nodes, excludeId, snapDistance, useDepthPrior
 
   // Priority logic: Prioritize depth-change connections
   if (useDepthPriority && nearestDifferentDepth) {
-    console.log('🎯 Depth-based auto-connect:', {
-      draggedDepth,
-      targetDepth: nearestDifferentDepth.data?.depthLevel,
-      targetNode: nearestDifferentDepth.data?.label,
-      distanceDifferent: minDistanceDifferentDepth,
-      distanceSame: minDistanceSameDepth
-    });
     return nearestDifferentDepth;
   }
 
   // Otherwise, return nearest node regardless of depth
-  const result = nearestDifferentDepth || nearestSameDepth;
-  if (result) {
-    console.log('🎯 Distance-based auto-connect:', {
-      draggedDepth,
-      targetDepth: result.data?.depthLevel,
-      targetNode: result.data?.label
-    });
-  }
-  return result;
+  return nearestDifferentDepth || nearestSameDepth;
 };
 
 /**
@@ -166,80 +151,42 @@ const useTreeDragDrop = ({
         );
 
         if (nearest) {
-          const draggedDepth = node.data?.depthLevel || 0;
-          const targetDepth = nearest.data?.depthLevel || 0;
-          const depthChange = draggedDepth !== targetDepth;
+          try {
+            // Find old parent from current edges
+            const oldParentEdge = edges.find((e) => e.target === node.id);
+            const oldParentId = oldParentEdge
+              ? Number(oldParentEdge.source)
+              : null;
 
-          const message = depthChange
-            ? `${node.data.label}을(를) ${nearest.data.label}의 하위로 연결하시겠습니까?\n(심도: L${draggedDepth} → L${targetDepth + 1})`
-            : `${node.data.label}을(를) ${nearest.data.label}의 하위로 연결하시겠습니까?`;
-
-          const confirmed = window.confirm(message);
-
-          if (confirmed) {
-            try {
-              // Find old parent from current edges
-              const oldParentEdge = edges.find((e) => e.target === node.id);
-              const oldParentId = oldParentEdge
-                ? Number(oldParentEdge.source)
-                : null;
-
-              // Update backend
-              await pageService.changeParent(
-                Number(node.id),
-                Number(nearest.id)
-              );
-
-              // Optimistically update local edges (remove old edge, add new edge)
-              setEdges((eds) => {
-                // Remove old parent edge
-                const filteredEdges = eds.filter((e) => e.target !== node.id);
-                // Add new parent edge
-                const newEdge = {
-                  id: `e${nearest.id}-${node.id}`,
-                  source: nearest.id,
-                  target: node.id,
-                  type: 'smoothstep',
-                };
-                return [...filteredEdges, newEdge];
-              });
-
-              // Update node depth level optimistically
-              setNodes((nds) =>
-                nds.map((n) => {
-                  if (n.id === node.id) {
-                    return {
-                      ...n,
-                      data: {
-                        ...n.data,
-                        depthLevel: (nearest.data?.depthLevel || 0) + 1,
-                      },
-                    };
-                  }
-                  return n;
-                })
-              );
-
-              // Save to history
-              const historyAction = {
-                type: 'reparent',
-                pageId: Number(node.id),
-                oldParentId: oldParentId,
-                newParentId: Number(nearest.id),
-              };
-              console.log('💾 Saving to history:', historyAction);
-              saveToHistory(historyAction);
-
-              console.log('✅ Auto-connect successful - UI updated without refresh');
-            } catch (error) {
-              console.error('Failed to auto-connect:', error);
-              alert(
-                '자동 연결 실패: ' +
-                  (error.response?.data?.error || error.message)
-              );
-              // On error, refresh to get correct state from backend
-              await refreshTreeData();
+            // Skip if trying to connect to same parent
+            if (oldParentId === Number(nearest.id)) {
+              return;
             }
+
+            // Update backend first
+            await pageService.changeParent(
+              Number(node.id),
+              Number(nearest.id)
+            );
+
+            // Save to history
+            saveToHistory({
+              type: 'reparent',
+              pageId: Number(node.id),
+              oldParentId: oldParentId,
+              newParentId: Number(nearest.id),
+            });
+
+            // Refresh tree to get proper layout with new hierarchy
+            await refreshTreeData();
+          } catch (error) {
+            console.error('Failed to auto-connect:', error);
+            alert(
+              '이동 실패: ' +
+                (error.response?.data?.error || error.message)
+            );
+            // On error, refresh to get correct state from backend
+            await refreshTreeData();
           }
         }
       }

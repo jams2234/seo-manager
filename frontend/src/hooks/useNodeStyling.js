@@ -75,8 +75,8 @@ const useNodeStyling = (
           isSubdomain: node.is_subdomain,
           isVisible: node.is_visible,
           status: node.status,
-          selected:
-            node.id === selectedPageId || highlightedNode === String(node.id),
+          selected: node.id === selectedPageId,
+          isDropTarget: highlightedNode === String(node.id),
           depthLevel: node.depth_level || 0,
           editMode: editMode,
           group: node.group,

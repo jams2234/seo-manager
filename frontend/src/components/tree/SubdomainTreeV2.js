@@ -258,6 +258,7 @@ const SubdomainTreeV2 = ({
     nodes,
     edges,
     setNodes,
+    setEdges,
     setDraggedPositions,
     setHasUnsavedChanges,
     setHighlightedNode,

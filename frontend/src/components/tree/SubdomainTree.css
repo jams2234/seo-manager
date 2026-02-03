@@ -9,12 +9,43 @@
 
 .react-flow__node {
   cursor: pointer;
-  transition: all 0.2s ease;
+  /* GPU 가속 활성화 */
+  will-change: transform;
 }
 
-.react-flow__node:hover {
+/* 드래그 중이 아닐 때만 transition 적용 */
+.react-flow__node:not(.dragging) {
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.react-flow__node:hover:not(.dragging) {
   filter: drop-shadow(0 10px 25px rgba(0, 0, 0, 0.15));
 }
+
+/* Dragging State - Node being dragged (즉각 반응, transition 없음) */
+.react-flow__node.dragging {
+  z-index: 10000 !important;
+  cursor: grabbing;
+  transition: none !important;
+}
+
+.react-flow__node.dragging .custom-node {
+  transform: scale(1.03);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  border-color: #818CF8 !important;
+  opacity: 0.9;
+  transition: none !important;
+}
+
+/* Drop Target Highlight - Potential parent node (단순화된 애니메이션) */
+.custom-node.drop-target {
+  border-color: #10B981 !important;
+  border-width: 4px !important;
+  box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.3), 0 12px 24px rgba(16, 185, 129, 0.25) !important;
+  transform: scale(1.02);
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
 
 .react-flow__controls {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -31,18 +62,19 @@
 .react-flow__edge-path {
   stroke-width: 2;
   stroke-dasharray: 5, 5;
-  animation: dash 20s linear infinite;
+  /* 애니메이션 비활성화로 성능 개선 */
+}
+
+/* 애니메이션 엣지만 움직임 (선택적) */
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 5, 5;
+  animation: dash 30s linear infinite;
 }
 
 @keyframes dash {
   to {
-    stroke-dashoffset: -1000;
+    stroke-dashoffset: -500;
   }
-}
-
-.react-flow__edge.animated .react-flow__edge-path {
-  stroke-dasharray: 5, 5;
-  animation: dash 20s linear infinite;
 }
 
 .react-flow__edge.selected .react-flow__edge-path {
