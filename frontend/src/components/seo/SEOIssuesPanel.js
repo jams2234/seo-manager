@@ -157,20 +157,28 @@ const SEOIssuesPanel = ({ pageId, domainId, onClose }) => {
     }
   };
 
-  // Confirm and apply auto-fix after preview
+  // Confirm and apply auto-fix after preview (uses AI-generated value from preview)
   const handleConfirmAutoFix = async () => {
     if (!previewIssueId) return;
 
     setShowCodePreview(false);
 
     try {
-      const result = await autoFixIssue(previewIssueId);
+      // Pass the AI-generated suggested value from preview to avoid regenerating
+      const options = previewData?.suggested_value
+        ? { suggestedValue: previewData.suggested_value }
+        : {};
+
+      const result = await autoFixIssue(previewIssueId, options);
 
       // Refresh data to show updated status
       await loadData();
 
-      // Show success message
-      alert(`수정이 적용되었습니다!\n\n💾 데이터베이스에 저장되었습니다.\n수정 완료 섹션의 "🚀 Git에 배포" 버튼으로 웹사이트에 반영할 수 있습니다.`);
+      // Show success message with AI indicator
+      const aiMessage = previewData?.ai_generated
+        ? '🤖 AI가 분석한 최적의 수정이 적용되었습니다!\n\n'
+        : '';
+      alert(`${aiMessage}수정이 적용되었습니다!\n\n💾 데이터베이스에 저장되었습니다.\n수정 완료 섹션의 "🚀 Git에 배포" 버튼으로 웹사이트에 반영할 수 있습니다.`);
     } catch (err) {
       alert('Failed to auto-fix issue: ' + err.message);
     } finally {

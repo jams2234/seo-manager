@@ -14,6 +14,8 @@ from .seo_fixer import SEOFixer
 from .sitemap_editor import SitemapEditorService
 from .claude_client import ClaudeAPIClient, ClaudeAnalyzer
 from .sitemap_ai_analyzer import SitemapAIAnalyzerService
+from .seo_knowledge_builder import SEOKnowledgeBuilder
+from .ai_auto_fixer import AIAutoFixer
 
 # Custom exceptions
 from .exceptions import (
@@ -62,6 +64,7 @@ __all__ = [
     'ClaudeAPIClient',
     'ClaudeAnalyzer',
     'SitemapAIAnalyzerService',
+    'SEOKnowledgeBuilder',
     # Exceptions
     'SEOAnalyzerException',
     'DomainException',

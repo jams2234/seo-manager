@@ -123,7 +123,8 @@ class ClaudeAPIClient:
 
     def chat(
         self,
-        prompt: str,
+        prompt: str = None,
+        messages: List[Dict] = None,
         system: str = None,
         use_cache: bool = True,
         temperature: float = 0.7,
@@ -132,7 +133,8 @@ class ClaudeAPIClient:
         Send a chat message to Claude.
 
         Args:
-            prompt: User message/prompt
+            prompt: User message/prompt (single message)
+            messages: List of message dicts with 'role' and 'content' (conversation history)
             system: System message (optional)
             use_cache: Whether to use caching
             temperature: Response temperature (0-1)
@@ -141,6 +143,7 @@ class ClaudeAPIClient:
             {
                 'success': True/False,
                 'content': 'Response text',
+                'response': 'Response text (alias)',
                 'model': 'claude-...',
                 'usage': {'input_tokens': X, 'output_tokens': Y},
                 'cached': True/False,
@@ -152,10 +155,26 @@ class ClaudeAPIClient:
                 'success': False,
                 'error': 'Anthropic API key not configured',
                 'content': None,
+                'response': None,
+            }
+
+        # Build messages from prompt or use provided messages
+        if messages:
+            api_messages = messages
+            cache_content = str(messages)
+        elif prompt:
+            api_messages = [{"role": "user", "content": prompt}]
+            cache_content = prompt
+        else:
+            return {
+                'success': False,
+                'error': 'Either prompt or messages is required',
+                'content': None,
+                'response': None,
             }
 
         # Check cache
-        cache_key = self._get_cache_key(prompt, system)
+        cache_key = self._get_cache_key(cache_content, system)
         if use_cache:
             cached = self._get_cached_response(cache_key)
             if cached:
@@ -167,14 +186,11 @@ class ClaudeAPIClient:
         self.rate_limiter.wait_if_needed()
 
         try:
-            # Build messages
-            messages = [{"role": "user", "content": prompt}]
-
             # Create request kwargs
             kwargs = {
                 "model": self.model,
                 "max_tokens": self.max_tokens,
-                "messages": messages,
+                "messages": api_messages,
                 "temperature": temperature,
             }
 
@@ -195,6 +211,7 @@ class ClaudeAPIClient:
             result = {
                 'success': True,
                 'content': content,
+                'response': content,  # Alias for backwards compatibility
                 'model': response.model,
                 'usage': {
                     'input_tokens': response.usage.input_tokens,
@@ -216,6 +233,7 @@ class ClaudeAPIClient:
                 'success': False,
                 'error': str(e),
                 'content': None,
+                'response': None,
             }
 
     def analyze_json(
@@ -316,33 +334,35 @@ class ClaudeAnalyzer:
             for e in sample_entries
         ])
 
-        system = """당신은 사이트맵을 분석하는 SEO 전문가입니다. 제공된 사이트맵 항목을 분석하고 문제점과 최적화 기회를 식별하세요.
+        system = """당신은 SEO 전문가입니다. 사용자가 선택한 특정 URL들만 분석하세요.
+중요: 전체 사이트맵이 아니라, 사용자가 분석 대상으로 "선택한 URL들만" 분석합니다.
+
 분석 중점:
-1. URL 구조 및 구성
-2. 우선순위 값 (페이지 중요도 반영 여부)
-3. 변경 빈도 정확성
-4. 누락되거나 오래된 lastmod 날짜
-5. 중복되거나 유사한 URL
-6. 문제를 나타낼 수 있는 URL 패턴
+1. 각 URL의 구조 및 내용 추정
+2. 우선순위(priority) 값 적절성
+3. 변경 빈도(changefreq) 적절성
+4. lastmod 날짜 상태
+5. 각 URL별 개선 제안
 
 모든 응답은 한국어로 작성하세요."""
 
-        prompt = f"""다음 사이트맵 항목을 분석해주세요 ({domain_info.get('domain_name', '웹사이트') if domain_info else '웹사이트'}):
+        prompt = f"""다음은 사용자가 AI 분석 대상으로 선택한 URL 목록입니다 (도메인: {domain_info.get('domain_name', '웹사이트') if domain_info else '웹사이트'}):
 
 {entries_text}
 
-전체 항목 수: {len(entries)}
-표시된 샘플: {sample_size}
+**중요: 위 {len(entries)}개의 URL만 분석 대상입니다. 전체 사이트맵이 아닙니다.**
+분석 대상 URL 수: {len(entries)}개
 
-다음 JSON 형식으로 분석 결과를 제공하세요 (모든 텍스트는 한국어로):
+선택된 {len(entries)}개의 URL에 대해서만 다음 JSON 형식으로 분석 결과를 제공하세요 (한국어로):
 {{
     "overall_health_score": 0-100,
+    "analyzed_url_count": {len(entries)},
     "issues": [
         {{
             "type": "이슈_유형",
             "severity": "critical|warning|info",
             "description": "문제 설명",
-            "affected_urls": ["url1", "url2"],
+            "affected_urls": ["분석대상 URL 중에서만"],
             "suggestion": "해결 방법"
         }}
     ],
@@ -350,12 +370,12 @@ class ClaudeAnalyzer:
         {{
             "type": "제안_유형",
             "description": "제안 설명",
-            "affected_urls": ["url1"],
+            "affected_urls": ["분석대상 URL"],
             "recommended_value": "권장 값",
             "current_value": "현재 값"
         }}
     ],
-    "summary": "전체 요약 (한국어)"
+    "summary": "선택된 {len(entries)}개 URL에 대한 분석 요약 (한국어)"
 }}"""
 
         return self.client.analyze_json(prompt, system=system)

@@ -76,66 +76,190 @@ const useSEOAnalysis = () => {
   }, []);
 
   /**
-   * Preview code changes before auto-fixing
+   * Preview code changes before auto-fixing (AI-powered)
+   * Uses Claude AI to generate intelligent fix suggestions
    * @param {number} issueId - The issue ID to preview
    */
   const previewFix = useCallback(async (issueId) => {
     try {
-      const response = await apiClient.get(`/seo-issues/${issueId}/preview-fix/`);
-      return response.data;
+      // Use AI Auto-Fix API for intelligent suggestions
+      const response = await apiClient.post('/sitemap-ai/auto-fix/generate/', {
+        issue_id: issueId,
+        fetch_live_page: true,  // Fetch live page data for better AI analysis
+      });
+
+      const data = response.data;
+
+      // Transform AI response to match CodePreviewModal expected format
+      return {
+        issue_id: issueId,
+        issue_type: data.issue_type,
+        current_value: data.current_value,
+        suggested_value: data.suggested_value,
+        ai_generated: true,
+        ai_explanation: data.explanation,
+        ai_confidence: data.confidence,
+        // Include additional context for the preview
+        preview_html: data.preview_html,
+        file_path: data.file_path,
+      };
     } catch (err) {
-      const errorMessage = err.response?.data?.error || err.message || 'Preview failed';
-      throw new Error(errorMessage);
+      // Fallback to rule-based preview if AI fails
+      console.warn('AI preview failed, falling back to rule-based:', err.message);
+      try {
+        const fallbackResponse = await apiClient.get(`/seo-issues/${issueId}/preview-fix/`);
+        return {
+          ...fallbackResponse.data,
+          ai_generated: false,
+          ai_fallback_reason: err.response?.data?.error || err.message,
+        };
+      } catch (fallbackErr) {
+        const errorMessage = err.response?.data?.error || err.message || 'Preview failed';
+        throw new Error(errorMessage);
+      }
     }
   }, []);
 
   /**
-   * Auto-fix a single SEO issue
+   * Auto-fix a single SEO issue (AI-powered)
+   * First generates AI fix, then applies it
    * @param {number} issueId - The issue ID to fix
+   * @param {Object} options - Fix options
+   * @param {string} options.suggestedValue - Pre-generated suggested value (from preview)
    */
-  const autoFixIssue = useCallback(async (issueId) => {
+  const autoFixIssue = useCallback(async (issueId, options = {}) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiClient.post(`/seo-issues/${issueId}/auto-fix/`);
+      let suggestedValue = options.suggestedValue;
+
+      // If no pre-generated value, generate AI fix first
+      if (!suggestedValue) {
+        const generateResponse = await apiClient.post('/sitemap-ai/auto-fix/generate/', {
+          issue_id: issueId,
+          fetch_live_page: true,
+        });
+        suggestedValue = generateResponse.data.suggested_value;
+      }
+
+      // Apply the AI-generated fix
+      const response = await apiClient.post('/sitemap-ai/auto-fix/apply/', {
+        issue_id: issueId,
+        suggested_value: suggestedValue,
+      });
+
       // Update issues state by updating the fixed issue
       setIssues((prevIssues) =>
         prevIssues.map((issue) =>
-          issue.id === issueId ? { ...issue, status: 'auto_fixed' } : issue
+          issue.id === issueId
+            ? {
+                ...issue,
+                status: 'auto_fixed',
+                suggested_value: suggestedValue,
+                ai_fix_generated: true,
+              }
+            : issue
         )
       );
       return response.data;
     } catch (err) {
-      const errorMessage = err.response?.data?.error || err.message || 'Auto-fix failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      // Fallback to rule-based auto-fix if AI fails
+      console.warn('AI auto-fix failed, falling back to rule-based:', err.message);
+      try {
+        const fallbackResponse = await apiClient.post(`/seo-issues/${issueId}/auto-fix/`);
+        setIssues((prevIssues) =>
+          prevIssues.map((issue) =>
+            issue.id === issueId ? { ...issue, status: 'auto_fixed' } : issue
+          )
+        );
+        return { ...fallbackResponse.data, ai_fallback: true };
+      } catch (fallbackErr) {
+        const errorMessage = err.response?.data?.error || err.message || 'Auto-fix failed';
+        setError(errorMessage);
+        throw new Error(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   /**
-   * Auto-fix multiple SEO issues at once (automatically deploys to Git if enabled)
+   * Auto-fix multiple SEO issues at once using AI (automatically deploys to Git if enabled)
    * @param {number[]} issueIds - Array of issue IDs to fix
+   * @param {number} pageId - Optional page ID for batch processing
    */
-  const bulkAutoFix = useCallback(async (issueIds) => {
+  const bulkAutoFix = useCallback(async (issueIds, pageId = null) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiClient.post('/seo-issues/bulk-fix/', {
-        issue_ids: issueIds,
-      });
+      // Use AI batch endpoint for intelligent bulk fixes
+      const batchPayload = pageId
+        ? { page_id: pageId, issue_types: null }  // All issue types for the page
+        : { issue_ids: issueIds };
+
+      const batchResponse = await apiClient.post('/sitemap-ai/auto-fix/batch/', batchPayload);
+      const fixes = batchResponse.data.fixes || [];
+
+      // Apply each AI-generated fix
+      const results = {
+        fixed_count: 0,
+        failed_count: 0,
+        total_requested: issueIds.length,
+        details: [],
+      };
+
+      for (const fix of fixes) {
+        if (fix.success && fix.suggested_value) {
+          try {
+            await apiClient.post('/sitemap-ai/auto-fix/apply/', {
+              issue_id: fix.issue_id,
+              suggested_value: fix.suggested_value,
+            });
+            results.fixed_count++;
+            results.details.push({ issue_id: fix.issue_id, success: true });
+          } catch (applyErr) {
+            results.failed_count++;
+            results.details.push({ issue_id: fix.issue_id, success: false, error: applyErr.message });
+          }
+        } else {
+          results.failed_count++;
+          results.details.push({ issue_id: fix.issue_id, success: false, error: fix.error || 'AI generation failed' });
+        }
+      }
+
       // Update issues state
+      const fixedIds = results.details.filter(d => d.success).map(d => d.issue_id);
       setIssues((prevIssues) =>
         prevIssues.map((issue) =>
-          issueIds.includes(issue.id) ? { ...issue, status: 'auto_fixed' } : issue
+          fixedIds.includes(issue.id)
+            ? { ...issue, status: 'auto_fixed', ai_fix_generated: true }
+            : issue
         )
       );
-      return response.data;
+
+      return {
+        ...results,
+        message: `AI가 ${results.fixed_count}개 이슈를 분석하여 수정했습니다.`,
+        ai_powered: true,
+      };
     } catch (err) {
-      const errorMessage = err.response?.data?.error || err.message || 'Bulk auto-fix failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      // Fallback to rule-based bulk fix if AI batch fails
+      console.warn('AI bulk fix failed, falling back to rule-based:', err.message);
+      try {
+        const fallbackResponse = await apiClient.post('/seo-issues/bulk-fix/', {
+          issue_ids: issueIds,
+        });
+        setIssues((prevIssues) =>
+          prevIssues.map((issue) =>
+            issueIds.includes(issue.id) ? { ...issue, status: 'auto_fixed' } : issue
+          )
+        );
+        return { ...fallbackResponse.data, ai_fallback: true };
+      } catch (fallbackErr) {
+        const errorMessage = err.response?.data?.error || err.message || 'Bulk auto-fix failed';
+        setError(errorMessage);
+        throw new Error(errorMessage);
+      }
     } finally {
       setLoading(false);
     }

@@ -68,6 +68,9 @@ class Domain(models.Model):
     deployment_status = models.CharField(max_length=50, default='never', help_text='Deployment status: never, pending, success, failed')
     last_deployment_error = models.TextField(null=True, blank=True, help_text='Last deployment error message')
 
+    # Sitemap AI Analysis
+    sitemap_ai_enabled = models.BooleanField(default=True, help_text='Include in Sitemap AI analysis target list')
+
     class Meta:
         db_table = 'seo_domains'
         ordering = ['-updated_at']
@@ -752,6 +755,12 @@ class SEOIssue(models.Model):
     )
     verified_at = models.DateTimeField(null=True, blank=True, help_text='When the fix was verified')
 
+    # AI Fix Fields
+    ai_fix_generated = models.BooleanField(default=False, help_text='Whether an AI fix was generated')
+    ai_fix_generated_at = models.DateTimeField(null=True, blank=True, help_text='When AI fix was generated')
+    ai_fix_confidence = models.FloatField(null=True, blank=True, help_text='AI confidence score (0-1)')
+    ai_fix_explanation = models.TextField(null=True, blank=True, help_text='AI explanation for the fix')
+
     # Timestamps
     detected_at = models.DateTimeField(auto_now_add=True, db_index=True)
     fixed_at = models.DateTimeField(null=True, blank=True)
@@ -780,6 +789,177 @@ class SEOIssue(models.Model):
         self.status = 'auto_fixed'
         self.fixed_at = timezone.now()
         self.save(update_fields=['status', 'fixed_at'])
+
+
+class AIFixHistory(models.Model):
+    """
+    AI Fix History - 페이지별 AI 수정 이력 추적
+
+    동일 페이지에서 반복되는 문제 해결 시 과거 이력을 참조하여
+    더 나은 수정안을 생성할 수 있도록 합니다.
+    """
+    FIX_STATUS_CHOICES = [
+        ('applied', '적용됨'),
+        ('deployed', '배포됨'),
+        ('verified', '검증됨'),
+        ('reverted', '되돌림'),
+        ('superseded', '대체됨'),  # 새 수정으로 덮어쓰임
+        ('failed', '실패'),
+    ]
+
+    EFFECTIVENESS_CHOICES = [
+        ('unknown', '알 수 없음'),
+        ('effective', '효과적'),  # 이슈가 해결됨
+        ('partial', '부분적'),    # 개선되었지만 완전히 해결되지 않음
+        ('ineffective', '비효과적'),  # 이슈가 재발
+        ('negative', '부정적'),   # 오히려 악화됨
+    ]
+
+    # 관계
+    page = models.ForeignKey(
+        Page,
+        on_delete=models.CASCADE,
+        related_name='ai_fix_history',
+        help_text='수정이 적용된 페이지'
+    )
+    issue = models.ForeignKey(
+        SEOIssue,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='fix_history',
+        help_text='원본 이슈 (삭제되어도 이력은 유지)'
+    )
+
+    # 수정 내용
+    issue_type = models.CharField(max_length=100, db_index=True, help_text='이슈 유형')
+    original_value = models.TextField(null=True, blank=True, help_text='수정 전 값')
+    fixed_value = models.TextField(help_text='AI가 제안한 수정 값')
+
+    # AI 분석 정보
+    ai_explanation = models.TextField(help_text='AI가 이 수정을 제안한 이유')
+    ai_confidence = models.FloatField(default=0.0, help_text='AI 신뢰도 (0-1)')
+    ai_model = models.CharField(max_length=100, default='claude-sonnet-4-20250514', help_text='사용된 AI 모델')
+
+    # 수정 시점의 컨텍스트 스냅샷 (추후 분석용)
+    context_snapshot = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='수정 시점의 SEO 데이터 스냅샷 (Search Console, 키워드 등)'
+    )
+
+    # 상태 추적
+    fix_status = models.CharField(
+        max_length=20,
+        choices=FIX_STATUS_CHOICES,
+        default='applied',
+        db_index=True
+    )
+
+    # 효과성 평가
+    effectiveness = models.CharField(
+        max_length=20,
+        choices=EFFECTIVENESS_CHOICES,
+        default='unknown',
+        help_text='수정의 효과성'
+    )
+    effectiveness_evaluated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='효과성 평가 시점'
+    )
+
+    # 이슈 재발 추적
+    issue_recurred = models.BooleanField(
+        default=False,
+        help_text='동일 이슈가 재발했는지'
+    )
+    recurrence_detected_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='재발 감지 시점'
+    )
+    recurrence_count = models.IntegerField(
+        default=0,
+        help_text='재발 횟수'
+    )
+
+    # SEO 성과 변화 (수정 전후 비교용)
+    pre_fix_metrics = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='수정 전 SEO 지표 (CTR, 순위 등)'
+    )
+    post_fix_metrics = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='수정 후 SEO 지표'
+    )
+
+    # Git 배포 정보
+    deployed_to_git = models.BooleanField(default=False)
+    deployment_commit_hash = models.CharField(max_length=40, null=True, blank=True)
+    deployed_at = models.DateTimeField(null=True, blank=True)
+
+    # 타임스탬프
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_fix_history'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['page', 'issue_type']),
+            models.Index(fields=['page', 'created_at']),
+            models.Index(fields=['issue_type', 'effectiveness']),
+            models.Index(fields=['fix_status']),
+        ]
+        verbose_name = 'AI Fix History'
+        verbose_name_plural = 'AI Fix Histories'
+
+    def __str__(self):
+        return f"[{self.issue_type}] {self.page.url} - {self.created_at.strftime('%Y-%m-%d')}"
+
+    def mark_as_effective(self, post_metrics: dict = None):
+        """수정이 효과적이었음을 표시"""
+        self.effectiveness = 'effective'
+        self.effectiveness_evaluated_at = timezone.now()
+        if post_metrics:
+            self.post_fix_metrics = post_metrics
+        self.save(update_fields=['effectiveness', 'effectiveness_evaluated_at', 'post_fix_metrics'])
+
+    def mark_as_recurred(self):
+        """이슈 재발 표시"""
+        self.issue_recurred = True
+        self.recurrence_count += 1
+        self.recurrence_detected_at = timezone.now()
+        self.effectiveness = 'ineffective'
+        self.effectiveness_evaluated_at = timezone.now()
+        self.save(update_fields=[
+            'issue_recurred', 'recurrence_count', 'recurrence_detected_at',
+            'effectiveness', 'effectiveness_evaluated_at'
+        ])
+
+    def mark_as_superseded(self):
+        """새 수정으로 대체됨 표시"""
+        self.fix_status = 'superseded'
+        self.save(update_fields=['fix_status'])
+
+    @classmethod
+    def get_page_history(cls, page, issue_type: str = None, limit: int = 10):
+        """페이지의 AI 수정 이력 조회"""
+        qs = cls.objects.filter(page=page)
+        if issue_type:
+            qs = qs.filter(issue_type=issue_type)
+        return qs.order_by('-created_at')[:limit]
+
+    @classmethod
+    def get_effective_fixes(cls, issue_type: str, limit: int = 5):
+        """특정 이슈 유형에서 효과적이었던 수정 패턴 조회"""
+        return cls.objects.filter(
+            issue_type=issue_type,
+            effectiveness='effective'
+        ).order_by('-ai_confidence', '-created_at')[:limit]
 
 
 class SitemapConfig(models.Model):
@@ -931,6 +1111,9 @@ class SitemapEntry(models.Model):
     # AI Suggestions
     ai_suggested = models.BooleanField(default=False, help_text="Entry suggested by AI")
     ai_suggestion_reason = models.TextField(null=True, blank=True)
+
+    # AI Analysis Target
+    ai_analysis_enabled = models.BooleanField(default=True, help_text="Include in AI analysis")
 
     # URL Status (cached from HTTP check)
     http_status_code = models.IntegerField(null=True, blank=True)

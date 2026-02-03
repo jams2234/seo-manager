@@ -3,12 +3,12 @@
  * Shows AI analysis, conversation history, and chat interface
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { sitemapAIService, aiChatService } from '../../services/sitemapEditorService';
-import { domainService } from '../../services/domainService';
+import { aiChatService } from '../../services/sitemapEditorService';
 import './SitemapAIPanel.css';
 
 const SitemapAIPanel = ({
   domainId,
+  domainName,
   entries,
   session,
   onApplySuggestions,
@@ -29,44 +29,26 @@ const SitemapAIPanel = ({
   const [sending, setSending] = useState(false);
   const chatEndRef = useRef(null);
 
-  // Domain selection
-  const [domains, setDomains] = useState([]);
-  const [selectedDomainId, setSelectedDomainId] = useState(domainId);
-
   // Analysis results (for backwards compatibility)
   const [analysis, setAnalysis] = useState(null);
 
-  // Load domains
-  useEffect(() => {
-    loadDomains();
-  }, []);
-
   // Load conversations when domain changes
   useEffect(() => {
-    if (selectedDomainId) {
+    if (domainId) {
       loadConversations();
     }
-  }, [selectedDomainId]);
+  }, [domainId]);
 
   // Auto scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentConversation?.messages]);
 
-  const loadDomains = async () => {
-    try {
-      const response = await domainService.getDomains();
-      setDomains(response.data.results || response.data || []);
-    } catch (err) {
-      console.error('Failed to load domains:', err);
-    }
-  };
-
   const loadConversations = async () => {
     setLoadingConversations(true);
     try {
       const response = await aiChatService.listConversations({
-        domain: selectedDomainId,
+        domain: domainId,
         status: 'active',
       });
       setConversations(response.data.results || response.data || []);
@@ -95,7 +77,7 @@ const SitemapAIPanel = ({
     setError(null);
     try {
       const response = await aiChatService.createConversation({
-        domain_id: selectedDomainId,
+        domain_id: domainId,
         conversation_type: type,
       });
       setCurrentConversation(response.data);
@@ -245,18 +227,7 @@ const SitemapAIPanel = ({
       <div className="ai-panel-header">
         <div className="header-left">
           <h3>🤖 AI SEO 분석</h3>
-          <select
-            value={selectedDomainId || ''}
-            onChange={(e) => setSelectedDomainId(e.target.value ? parseInt(e.target.value) : null)}
-            className="domain-select"
-          >
-            <option value="">도메인 선택...</option>
-            {domains.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.domain_name}
-              </option>
-            ))}
-          </select>
+          {domainName && <span className="domain-badge">{domainName}</span>}
         </div>
         <button onClick={onClose} className="btn-close">×</button>
       </div>
@@ -303,13 +274,13 @@ const SitemapAIPanel = ({
                 <div className="quick-actions">
                   <button
                     onClick={() => createNewConversation('sitemap_analysis')}
-                    disabled={!selectedDomainId || loading}
+                    disabled={!domainId || loading}
                   >
                     🗺️ 사이트맵 분석
                   </button>
                   <button
                     onClick={() => createNewConversation('seo_issues')}
-                    disabled={!selectedDomainId || loading}
+                    disabled={!domainId || loading}
                   >
                     🔍 SEO 이슈 분석
                   </button>
@@ -340,21 +311,21 @@ const SitemapAIPanel = ({
                 <div className="analysis-buttons">
                   <button
                     onClick={() => handleRunAnalysis('sitemap')}
-                    disabled={loading || !selectedDomainId}
+                    disabled={loading || !domainId}
                     title="사이트맵 분석"
                   >
                     🗺️
                   </button>
                   <button
                     onClick={() => handleRunAnalysis('seo_issues')}
-                    disabled={loading || !selectedDomainId}
+                    disabled={loading || !domainId}
                     title="SEO 이슈 분석"
                   >
                     🔍
                   </button>
                   <button
                     onClick={() => handleRunAnalysis('full_report')}
-                    disabled={loading || !selectedDomainId}
+                    disabled={loading || !domainId}
                     title="전체 리포트"
                   >
                     📊
@@ -445,19 +416,19 @@ const SitemapAIPanel = ({
             <div className="analysis-actions">
               <button
                 onClick={() => handleRunAnalysis('sitemap')}
-                disabled={loading || !selectedDomainId}
+                disabled={loading || !domainId}
               >
                 🗺️ 사이트맵 분석
               </button>
               <button
                 onClick={() => handleRunAnalysis('seo_issues')}
-                disabled={loading || !selectedDomainId}
+                disabled={loading || !domainId}
               >
                 🔍 SEO 이슈 분석
               </button>
               <button
                 onClick={() => handleRunAnalysis('full_report')}
-                disabled={loading || !selectedDomainId}
+                disabled={loading || !domainId}
               >
                 📊 전체 리포트
               </button>

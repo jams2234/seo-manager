@@ -58,8 +58,11 @@ class SitemapAIAnalyzerService(ManagerService):
         try:
             self.log_info(f"Starting AI sitemap analysis for {domain.domain_name}")
 
-            # Get all entries
-            entries = list(SitemapEntry.objects.filter(domain=domain).values(
+            # Get only entries enabled for AI analysis
+            entries = list(SitemapEntry.objects.filter(
+                domain=domain,
+                ai_analysis_enabled=True  # Only analyze selected URLs
+            ).values(
                 'id', 'loc', 'lastmod', 'changefreq', 'priority',
                 'status', 'is_valid', 'http_status_code', 'redirect_url'
             ))
@@ -67,7 +70,7 @@ class SitemapAIAnalyzerService(ManagerService):
             if not entries:
                 return {
                     'error': True,
-                    'message': 'No sitemap entries found for this domain'
+                    'message': 'AI 분석 대상으로 선택된 URL이 없습니다. 테이블에서 체크박스로 URL을 선택하세요.'
                 }
 
             # Convert dates to strings
@@ -369,12 +372,12 @@ class SitemapAIAnalyzerService(ManagerService):
             sitemap_analysis = self.analyze_domain_sitemap(domain)
             seo_analysis = self.analyze_seo_issues(domain)
 
-            # Get domain stats
+            # Get domain stats (only for AI-enabled entries)
             from ..models import SitemapEntry, Page, SEOIssue
 
             stats = {
-                'total_sitemap_entries': SitemapEntry.objects.filter(domain=domain).count(),
-                'invalid_entries': SitemapEntry.objects.filter(domain=domain, is_valid=False).count(),
+                'total_sitemap_entries': SitemapEntry.objects.filter(domain=domain, ai_analysis_enabled=True).count(),
+                'invalid_entries': SitemapEntry.objects.filter(domain=domain, ai_analysis_enabled=True, is_valid=False).count(),
                 'total_pages': Page.objects.filter(domain=domain).count(),
                 'pages_with_issues': Page.objects.filter(
                     domain=domain,

@@ -11,8 +11,10 @@ from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 from django.utils import timezone
 from django.db import transaction
+from django.db.models import F
 
 from .base import ManagerService
+from ..utils import normalize_url
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +163,7 @@ class SitemapEditorService(ManagerService):
         Returns:
             Sync result with counts
         """
-        from ..models import SitemapEntry
+        from ..models import SitemapEntry, Page
 
         result = self.load_entries_from_sitemap(domain, sitemap_url)
         if result.get('error'):
@@ -170,7 +172,15 @@ class SitemapEditorService(ManagerService):
         entries = result['entries']
         created_count = 0
         updated_count = 0
+        linked_count = 0
         errors = []
+
+        # Pre-fetch all pages for this domain for efficient linking
+        # Index by both original and normalized URL
+        pages_by_url = {}
+        for page in Page.objects.filter(domain=domain):
+            pages_by_url[page.url] = page
+            pages_by_url[normalize_url(page.url)] = page
 
         with transaction.atomic():
             for entry_data in entries:
@@ -203,6 +213,9 @@ class SitemapEditorService(ManagerService):
                         except (ValueError, TypeError):
                             pass
 
+                    # Try to find matching Page by URL (try exact match, then normalized)
+                    linked_page = pages_by_url.get(loc) or pages_by_url.get(normalize_url(loc))
+
                     entry, created = SitemapEntry.objects.update_or_create(
                         domain=domain,
                         loc_hash=loc_hash,
@@ -213,6 +226,7 @@ class SitemapEditorService(ManagerService):
                             'priority': priority,
                             'status': 'active',
                             'is_valid': True,
+                            'page': linked_page,  # Auto-link to Page if exists
                         }
                     )
 
@@ -221,11 +235,30 @@ class SitemapEditorService(ManagerService):
                     else:
                         updated_count += 1
 
+                    if linked_page:
+                        linked_count += 1
+                        # Bidirectional sync: update Page.sitemap_entry JSON field
+                        linked_page.sitemap_entry = {
+                            'loc': loc,
+                            'lastmod': entry_data.get('lastmod'),
+                            'changefreq': entry_data.get('changefreq'),
+                            'priority': entry_data.get('priority'),
+                        }
+                        linked_page.save(update_fields=['sitemap_entry'])
+
                 except Exception as e:
                     errors.append({
                         'loc': entry_data.get('loc', 'unknown'),
                         'error': str(e)
                     })
+
+            # Update domain aggregate scores after sync
+            try:
+                domain.update_aggregate_scores()
+                domain.save()
+                self.log_info(f"Updated domain aggregate scores: total_pages={domain.total_pages}")
+            except Exception as e:
+                self.log_warning(f"Failed to update domain aggregate scores: {e}")
 
         return {
             'error': False,
@@ -233,6 +266,7 @@ class SitemapEditorService(ManagerService):
             'total_entries': len(entries),
             'created': created_count,
             'updated': updated_count,
+            'linked_to_pages': linked_count,
             'errors': errors,
         }
 
@@ -262,8 +296,8 @@ class SitemapEditorService(ManagerService):
                         loc = page.url
                         loc_hash = hashlib.sha256(loc.encode('utf-8')).hexdigest()
 
-                        # Determine priority based on depth
-                        depth = page.depth or 0
+                        # Determine priority based on depth_level
+                        depth = page.depth_level or 0
                         if depth == 0:
                             priority = 1.0
                         elif depth == 1:
@@ -280,12 +314,14 @@ class SitemapEditorService(ManagerService):
                         elif 'blog' in loc or 'news' in loc:
                             changefreq = 'daily'
 
+                        lastmod_date = page.last_analyzed_at.date() if page.last_analyzed_at else None
+
                         entry, created = SitemapEntry.objects.update_or_create(
                             domain=domain,
                             loc_hash=loc_hash,
                             defaults={
                                 'loc': loc,
-                                'lastmod': page.last_fetched.date() if page.last_fetched else None,
+                                'lastmod': lastmod_date,
                                 'changefreq': changefreq,
                                 'priority': priority,
                                 'status': 'active',
@@ -293,6 +329,15 @@ class SitemapEditorService(ManagerService):
                                 'page': page,  # Link to Page model
                             }
                         )
+
+                        # Bidirectional sync: update Page.sitemap_entry JSON field
+                        page.sitemap_entry = {
+                            'loc': loc,
+                            'lastmod': lastmod_date.isoformat() if lastmod_date else None,
+                            'changefreq': changefreq,
+                            'priority': priority,
+                        }
+                        page.save(update_fields=['sitemap_entry'])
 
                         if created:
                             created_count += 1
@@ -305,6 +350,14 @@ class SitemapEditorService(ManagerService):
                             'error': str(e)
                         })
 
+                # Update domain aggregate scores after populating
+                try:
+                    domain.update_aggregate_scores()
+                    domain.save()
+                    self.log_info(f"Updated domain aggregate scores: total_pages={domain.total_pages}")
+                except Exception as e:
+                    self.log_warning(f"Failed to update domain aggregate scores: {e}")
+
             return {
                 'error': False,
                 'source': 'database_pages',
@@ -316,6 +369,70 @@ class SitemapEditorService(ManagerService):
 
         except Exception as e:
             self.log_error(f"Failed to populate from pages: {e}", exc_info=True)
+            return {
+                'error': True,
+                'message': str(e)
+            }
+
+    def link_entries_to_pages(self, domain) -> Dict:
+        """
+        Link existing SitemapEntry records to matching Page records.
+        Useful for entries that were created before the auto-linking logic.
+
+        Args:
+            domain: Domain model instance
+
+        Returns:
+            Result with linked count
+        """
+        from ..models import SitemapEntry, Page
+
+        try:
+            # Get all pages for this domain, indexed by normalized URL
+            pages_by_url = {}
+            for page in Page.objects.filter(domain=domain):
+                # Index by both original and normalized URL for flexible matching
+                pages_by_url[page.url] = page
+                pages_by_url[normalize_url(page.url)] = page
+
+            # Get unlinked entries
+            unlinked_entries = SitemapEntry.objects.filter(domain=domain, page__isnull=True)
+            linked_count = 0
+
+            with transaction.atomic():
+                for entry in unlinked_entries:
+                    # Try exact match first, then normalized match
+                    page = pages_by_url.get(entry.loc) or pages_by_url.get(normalize_url(entry.loc))
+                    if page:
+                        entry.page = page
+                        entry.save(update_fields=['page', 'updated_at'])
+
+                        # Bidirectional sync: update Page.sitemap_entry JSON field
+                        page.sitemap_entry = {
+                            'loc': entry.loc,
+                            'lastmod': entry.lastmod.isoformat() if entry.lastmod else None,
+                            'changefreq': entry.changefreq,
+                            'priority': float(entry.priority) if entry.priority else None,
+                        }
+                        page.save(update_fields=['sitemap_entry'])
+                        linked_count += 1
+
+                # Update domain aggregate scores
+                try:
+                    domain.update_aggregate_scores()
+                    domain.save()
+                except Exception as e:
+                    self.log_warning(f"Failed to update domain aggregate scores: {e}")
+
+            return {
+                'error': False,
+                'total_unlinked': unlinked_entries.count(),
+                'linked': linked_count,
+                'total_pages': Page.objects.filter(domain=domain).count(),
+            }
+
+        except Exception as e:
+            self.log_error(f"Failed to link entries to pages: {e}", exc_info=True)
             return {
                 'error': True,
                 'message': str(e)
@@ -433,8 +550,9 @@ class SitemapEditorService(ManagerService):
             entries = list(queryset.values(
                 'id', 'loc', 'lastmod', 'changefreq', 'priority',
                 'status', 'is_valid', 'validation_errors',
-                'ai_suggested', 'ai_suggestion_reason',
+                'ai_suggested', 'ai_suggestion_reason', 'ai_analysis_enabled',
                 'http_status_code', 'redirect_url',
+                'page_id',  # Include linked page ID
                 'created_at', 'updated_at'
             ))
 
@@ -532,10 +650,11 @@ class SitemapEditorService(ManagerService):
                     changed_by=user,
                 )
 
-                # Update session counters
-                session.entries_added += 1
-                session.total_entries += 1
-                session.save(update_fields=['entries_added', 'total_entries', 'updated_at'])
+                # Update session counters using F() for race-condition safety
+                SitemapEditSession.objects.filter(id=session_id).update(
+                    entries_added=F('entries_added') + 1,
+                    total_entries=F('total_entries') + 1
+                )
 
                 return {
                     'error': False,
@@ -634,10 +753,11 @@ class SitemapEditorService(ManagerService):
                     changed_by=user,
                 )
 
-                # Update session counter
+                # Update session counter using F() for race-condition safety
                 if entry.status == 'pending_modify':
-                    session.entries_modified += 1
-                    session.save(update_fields=['entries_modified', 'updated_at'])
+                    SitemapEditSession.objects.filter(id=session_id).update(
+                        entries_modified=F('entries_modified') + 1
+                    )
 
                 return {
                     'error': False,
@@ -702,10 +822,11 @@ class SitemapEditorService(ManagerService):
                     changed_by=user,
                 )
 
-                # Update session counter
-                session.entries_removed += 1
-                session.total_entries -= 1
-                session.save(update_fields=['entries_removed', 'total_entries', 'updated_at'])
+                # Update session counter using F() for race-condition safety
+                SitemapEditSession.objects.filter(id=session_id).update(
+                    entries_removed=F('entries_removed') + 1,
+                    total_entries=F('total_entries') - 1
+                )
 
                 return {
                     'error': False,

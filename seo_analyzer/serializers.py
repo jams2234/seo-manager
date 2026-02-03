@@ -196,6 +196,7 @@ class DomainListSerializer(serializers.ModelSerializer):
             'analytics_connected',
             'last_scanned_at',
             'created_at',
+            'sitemap_ai_enabled',
         ]
 
 
@@ -233,6 +234,8 @@ class DomainDetailSerializer(serializers.ModelSerializer):
             'last_deployed_at',
             'deployment_status',
             'last_deployment_error',
+            # Sitemap AI
+            'sitemap_ai_enabled',
         ]
         # Note: avg_* and total_* fields are model properties/fields, auto-handled by DRF
         read_only_fields = ['last_scanned_at', 'last_deployed_at', 'deployment_status', 'last_deployment_error']
@@ -444,9 +447,16 @@ class SEOIssueSerializer(serializers.ModelSerializer):
             'auto_fix_available', 'auto_fix_method',
             'impact', 'current_value', 'suggested_value',
             'extra_data', 'detected_at', 'fixed_at',
-            'deployed_to_git', 'deployed_at', 'deployment_commit_hash'
+            'deployed_to_git', 'deployed_at', 'deployment_commit_hash',
+            # AI Fix fields
+            'ai_fix_generated', 'ai_fix_generated_at',
+            'ai_fix_confidence', 'ai_fix_explanation',
         ]
-        read_only_fields = ['id', 'detected_at', 'page_url', 'page_title', 'deployed_to_git', 'deployed_at', 'deployment_commit_hash']
+        read_only_fields = [
+            'id', 'detected_at', 'page_url', 'page_title',
+            'deployed_to_git', 'deployed_at', 'deployment_commit_hash',
+            'ai_fix_generated', 'ai_fix_generated_at',
+        ]
 
 
 class SEOIssueListSerializer(serializers.ModelSerializer):
@@ -462,8 +472,11 @@ class SEOIssueListSerializer(serializers.ModelSerializer):
             'auto_fix_available', 'auto_fix_method',
             'current_value', 'suggested_value',
             'deployed_to_git', 'deployed_at', 'deployment_commit_hash',
-            'verification_status', 'verified_at',  # 검증 상태 필드 추가
-            'detected_at', 'fixed_at'
+            'verification_status', 'verified_at',
+            'detected_at', 'fixed_at',
+            # AI Fix fields
+            'ai_fix_generated', 'ai_fix_generated_at',
+            'ai_fix_confidence', 'ai_fix_explanation',
         ]
 
 
@@ -644,6 +657,7 @@ class SitemapEntrySerializer(serializers.ModelSerializer):
             'validation_errors',
             'ai_suggested',
             'ai_suggestion_reason',
+            'ai_analysis_enabled',
             'http_status_code',
             'redirect_url',
             'last_checked_at',

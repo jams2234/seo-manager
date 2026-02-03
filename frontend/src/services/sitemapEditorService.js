@@ -43,6 +43,19 @@ export const sitemapEditorService = {
   checkEntryStatus: (entryId) =>
     apiClient.post(`/sitemap-editor/entries/${entryId}/check-status/`),
 
+  // Toggle AI analysis for single entry
+  toggleEntryAI: (entryId, enabled = null) =>
+    apiClient.post(`/sitemap-editor/entries/${entryId}/toggle-ai/`,
+      enabled !== null ? { enabled } : {}
+    ),
+
+  // Bulk toggle AI analysis for multiple entries
+  bulkToggleAI: (entryIds, enabled) =>
+    apiClient.post('/sitemap-editor/entries/bulk-toggle-ai/', {
+      entry_ids: entryIds,
+      enabled,
+    }),
+
   // =========================================================================
   // Edit Sessions
   // =========================================================================
@@ -59,11 +72,11 @@ export const sitemapEditorService = {
     apiClient.get(`/sitemap-editor/sessions/${sessionId}/`),
 
   // Create new session
-  createSession: (domainId, name = null) =>
-    apiClient.post('/sitemap-editor/sessions/', {
-      domain_id: domainId,
-      name,
-    }),
+  createSession: (domainId, name = null) => {
+    const data = { domain_id: domainId };
+    if (name) data.name = name;
+    return apiClient.post('/sitemap-editor/sessions/', data);
+  },
 
   // Cancel session
   cancelSession: (sessionId) =>
@@ -78,21 +91,22 @@ export const sitemapEditorService = {
     apiClient.post(`/sitemap-editor/sessions/${sessionId}/validate/`),
 
   // Deploy session
-  deploySession: (sessionId, commitMessage = null) =>
-    apiClient.post(`/sitemap-editor/sessions/${sessionId}/deploy/`, {
-      commit_message: commitMessage,
-    }),
+  deploySession: (sessionId, commitMessage = null) => {
+    const data = {};
+    if (commitMessage) data.commit_message = commitMessage;
+    return apiClient.post(`/sitemap-editor/sessions/${sessionId}/deploy/`, data);
+  },
 
   // Get session diff
   getSessionDiff: (sessionId) =>
     apiClient.get(`/sitemap-editor/sessions/${sessionId}/diff/`),
 
   // Sync from live sitemap
-  syncFromSitemap: (domainId, sitemapUrl = null) =>
-    apiClient.post('/sitemap-editor/sessions/sync/', {
-      domain_id: domainId,
-      sitemap_url: sitemapUrl,
-    }),
+  syncFromSitemap: (domainId, sitemapUrl = null) => {
+    const data = { domain_id: domainId };
+    if (sitemapUrl) data.sitemap_url = sitemapUrl;
+    return apiClient.post('/sitemap-editor/sessions/sync/', data);
+  },
 
   // Bulk import entries
   bulkImport: (sessionId, entries) =>

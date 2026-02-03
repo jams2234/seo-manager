@@ -206,6 +206,29 @@ class DomainViewSet(viewsets.ModelViewSet):
                 task_id=task_id
             )
 
+    @action(detail=True, methods=['post'], url_path='toggle-ai-analysis')
+    def toggle_ai_analysis(self, request, pk=None):
+        """
+        Toggle sitemap AI analysis enabled status
+        POST /api/v1/domains/{id}/toggle-ai-analysis/
+        """
+        domain = self.get_object()
+
+        # Get the new value from request or toggle
+        new_value = request.data.get('enabled')
+        if new_value is None:
+            domain.sitemap_ai_enabled = not domain.sitemap_ai_enabled
+        else:
+            domain.sitemap_ai_enabled = bool(new_value)
+
+        domain.save(update_fields=['sitemap_ai_enabled'])
+
+        return Response({
+            'id': domain.id,
+            'domain_name': domain.domain_name,
+            'sitemap_ai_enabled': domain.sitemap_ai_enabled,
+        })
+
     @action(detail=True, methods=['get'])
     def tree(self, request, pk=None):
         """

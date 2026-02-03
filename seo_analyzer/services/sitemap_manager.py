@@ -52,14 +52,22 @@ class SitemapManager(ManagerService):
             Generation result with XML content
         """
         try:
-            from seo_analyzer.models import Page
+            from seo_analyzer.models import Page, SEOMetrics
+            from django.db.models import OuterRef, Subquery, FloatField
 
             self.log_info(f"Generating sitemap for domain: {domain_obj.name}")
 
-            # Get all active pages for this domain
+            # Subquery to get latest SEO score for each page (avoids N+1 queries)
+            latest_seo_score_subquery = SEOMetrics.objects.filter(
+                page_id=OuterRef('id')
+            ).order_by('-snapshot_date').values('seo_score')[:1]
+
+            # Get all active pages with annotated SEO score
             pages = Page.objects.filter(
                 domain=domain_obj,
                 status='active'
+            ).annotate(
+                seo_score=Subquery(latest_seo_score_subquery, output_field=FloatField())
             ).order_by('depth_level', '-last_crawled_at')
 
             if not pages.exists():
@@ -692,13 +700,21 @@ class SitemapManager(ManagerService):
             Optimization result
         """
         try:
-            from seo_analyzer.models import Page
+            from seo_analyzer.models import Page, SEOMetrics
+            from django.db.models import OuterRef, Subquery, FloatField
 
             self.log_info(f"Optimizing sitemap for domain: {domain_obj.name}")
+
+            # Subquery to get latest SEO score for each page (avoids N+1 queries)
+            latest_seo_score_subquery = SEOMetrics.objects.filter(
+                page_id=OuterRef('id')
+            ).order_by('-snapshot_date').values('seo_score')[:1]
 
             pages = Page.objects.filter(
                 domain=domain_obj,
                 status='active'
+            ).annotate(
+                seo_score=Subquery(latest_seo_score_subquery, output_field=FloatField())
             )
 
             optimization_changes = []

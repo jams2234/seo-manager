@@ -1,8 +1,8 @@
 /**
  * Sitemap Table Component
- * Displays and edits sitemap entries
+ * Displays and edits sitemap entries with AI analysis selection
  */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import './SitemapTable.css';
 
 const SitemapTable = ({
@@ -11,6 +11,8 @@ const SitemapTable = ({
   onUpdateEntry,
   onDeleteEntry,
   onCheckStatus,
+  onToggleAI,
+  onBulkToggleAI,
 }) => {
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState({});
@@ -32,6 +34,13 @@ const SitemapTable = ({
     { value: 'yearly', label: 'Yearly' },
     { value: 'never', label: 'Never' },
   ];
+
+  // Calculate AI selection stats
+  const aiStats = useMemo(() => {
+    const enabled = entries.filter(e => e.ai_analysis_enabled).length;
+    const total = entries.length;
+    return { enabled, total, allSelected: total > 0 && enabled === total };
+  }, [entries]);
 
   const getStatusBadge = (status) => {
     const badges = {
@@ -102,9 +111,22 @@ const SitemapTable = ({
     setShowAddForm(false);
   };
 
+  const handleSelectAll = () => {
+    if (onBulkToggleAI) {
+      const allIds = entries.map(e => e.id);
+      onBulkToggleAI(allIds, !aiStats.allSelected);
+    }
+  };
+
+  const handleToggleSingle = (entry) => {
+    if (onToggleAI) {
+      onToggleAI(entry.id, !entry.ai_analysis_enabled);
+    }
+  };
+
   return (
     <div className="sitemap-table-container">
-      {/* Add Entry Button */}
+      {/* Toolbar */}
       <div className="table-toolbar">
         <button
           onClick={() => setShowAddForm(!showAddForm)}
@@ -112,6 +134,13 @@ const SitemapTable = ({
         >
           {showAddForm ? '취소' : '+ 새 항목 추가'}
         </button>
+        {onBulkToggleAI && (
+          <div className="ai-selection-info">
+            <span className="ai-count">
+              AI 분석 대상: <strong>{aiStats.enabled}</strong> / {aiStats.total}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Add Entry Form */}
@@ -161,6 +190,18 @@ const SitemapTable = ({
         <table className="sitemap-table">
           <thead>
             <tr>
+              {onToggleAI && (
+                <th className="col-ai-select">
+                  <label className="checkbox-wrapper" title="전체 선택/해제">
+                    <input
+                      type="checkbox"
+                      checked={aiStats.allSelected}
+                      onChange={handleSelectAll}
+                    />
+                    <span className="checkmark"></span>
+                  </label>
+                </th>
+              )}
               <th className="col-status">상태</th>
               <th className="col-url">URL</th>
               <th className="col-lastmod">Last Modified</th>
@@ -173,7 +214,7 @@ const SitemapTable = ({
           <tbody>
             {entries.length === 0 ? (
               <tr>
-                <td colSpan="7" className="empty-message">
+                <td colSpan={onToggleAI ? "8" : "7"} className="empty-message">
                   No entries found. Click "사이트맵 동기화" to load from live sitemap.
                 </td>
               </tr>
@@ -184,8 +225,21 @@ const SitemapTable = ({
                   className={`
                     ${entry.status !== 'active' ? 'row-pending' : ''}
                     ${!entry.is_valid ? 'row-invalid' : ''}
+                    ${entry.ai_analysis_enabled ? 'row-ai-enabled' : ''}
                   `}
                 >
+                  {onToggleAI && (
+                    <td className="col-ai-select">
+                      <label className="checkbox-wrapper">
+                        <input
+                          type="checkbox"
+                          checked={entry.ai_analysis_enabled || false}
+                          onChange={() => handleToggleSingle(entry)}
+                        />
+                        <span className="checkmark"></span>
+                      </label>
+                    </td>
+                  )}
                   <td className="col-status">
                     {getStatusBadge(entry.status)}
                     {!entry.is_valid && (
@@ -252,7 +306,7 @@ const SitemapTable = ({
                         className="edit-input priority-edit"
                       />
                     ) : (
-                      entry.priority !== null ? entry.priority.toFixed(1) : '-'
+                      entry.priority != null ? Number(entry.priority).toFixed(1) : '-'
                     )}
                   </td>
                   <td className="col-http">

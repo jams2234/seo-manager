@@ -30,6 +30,19 @@ export const domainService = {
 
   // Get task status
   getTaskStatus: (taskId) => apiClient.get(`/domains/task/${taskId}/`),
+
+  // Toggle AI analysis enabled status
+  toggleAIAnalysis: (id, enabled = null) => apiClient.post(`/domains/${id}/toggle-ai-analysis/`, enabled !== null ? { enabled } : {}),
+
+  // List only AI-enabled domains
+  listAIEnabledDomains: async () => {
+    const response = await apiClient.get('/domains/');
+    const domains = response.data.results || response.data || [];
+    return {
+      ...response,
+      data: domains.filter(d => d.sitemap_ai_enabled),
+    };
+  },
 };
 
 export const pageService = {

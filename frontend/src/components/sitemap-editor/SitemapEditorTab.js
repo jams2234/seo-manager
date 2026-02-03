@@ -3,19 +3,20 @@
  * Main component for viewing and editing sitemap entries
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { sitemapEditorService, sitemapAIService } from '../../services/sitemapEditorService';
+import { sitemapEditorService } from '../../services/sitemapEditorService';
 import SitemapTable from './SitemapTable';
 import SitemapPreviewPanel from './SitemapPreviewPanel';
 import SitemapAIPanel from './SitemapAIPanel';
 import './SitemapEditorTab.css';
 
-const SitemapEditorTab = ({ domainId, domainName }) => {
+const SitemapEditorTab = ({ domainId, domain }) => {
   // State
   const [entries, setEntries] = useState([]);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
+
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,6 +27,7 @@ const SitemapEditorTab = ({ domainId, domainName }) => {
   const [showPreview, setShowPreview] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [previewData, setPreviewData] = useState(null);
+
 
   // Load entries
   const loadEntries = useCallback(async () => {
@@ -217,6 +219,34 @@ const SitemapEditorTab = ({ domainId, domainName }) => {
     }
   };
 
+  // Toggle AI analysis for single entry
+  const handleToggleAI = async (entryId, enabled) => {
+    try {
+      await sitemapEditorService.toggleEntryAI(entryId, enabled);
+      // Update local state immediately for responsive UI
+      setEntries(prev => prev.map(e =>
+        e.id === entryId ? { ...e, ai_analysis_enabled: enabled } : e
+      ));
+    } catch (err) {
+      console.error('Failed to toggle AI analysis:', err);
+      setError('AI 분석 설정 변경에 실패했습니다.');
+    }
+  };
+
+  // Bulk toggle AI analysis for multiple entries
+  const handleBulkToggleAI = async (entryIds, enabled) => {
+    try {
+      await sitemapEditorService.bulkToggleAI(entryIds, enabled);
+      // Update local state immediately
+      setEntries(prev => prev.map(e =>
+        entryIds.includes(e.id) ? { ...e, ai_analysis_enabled: enabled } : e
+      ));
+    } catch (err) {
+      console.error('Failed to bulk toggle AI analysis:', err);
+      setError('AI 분석 설정 일괄 변경에 실패했습니다.');
+    }
+  };
+
   return (
     <div className="sitemap-editor-tab">
       {/* Header */}
@@ -304,6 +334,58 @@ const SitemapEditorTab = ({ domainId, domainName }) => {
 
       {/* Main Content */}
       <div className="editor-content">
+        {/* URL Sidebar - AI 분석 대상 URL 목록 */}
+        <div className="domain-sidebar">
+          <div className="sidebar-header">
+            <h4>AI 분석 대상 URL</h4>
+            <span className="sidebar-count">
+              {entries.filter(e => e.ai_analysis_enabled).length}개
+            </span>
+          </div>
+
+          <div className="domain-list url-list">
+            {loading ? (
+              <div className="sidebar-loading">로딩 중...</div>
+            ) : entries.filter(e => e.ai_analysis_enabled).length === 0 ? (
+              <div className="sidebar-empty">
+                AI 분석 대상 URL이 없습니다.
+                <br />
+                <small>테이블에서 체크박스를 선택하세요</small>
+              </div>
+            ) : (
+              entries.filter(e => e.ai_analysis_enabled).map((entry) => {
+                // URL에서 경로만 추출 (루트는 도메인 표시)
+                let displayPath = entry.loc;
+                try {
+                  const url = new URL(entry.loc);
+                  const pathname = url.pathname || '/';
+                  // 루트 경로면 도메인명 표시, 아니면 경로 표시
+                  displayPath = pathname === '/' ? url.hostname : pathname;
+                } catch (e) {
+                  displayPath = entry.loc;
+                }
+
+                return (
+                  <div
+                    key={entry.id}
+                    className="domain-item url-item"
+                    title={entry.loc}
+                  >
+                    <span className="url-path">{displayPath}</span>
+                    <button
+                      onClick={() => handleToggleAI(entry.id, false)}
+                      className="btn-remove-domain"
+                      title="AI 분석 목록에서 제거"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
         {/* Table */}
         <div className={`table-section ${showAIPanel ? 'with-panel' : ''}`}>
           {loading ? (
@@ -318,6 +400,8 @@ const SitemapEditorTab = ({ domainId, domainName }) => {
               onUpdateEntry={handleUpdateEntry}
               onDeleteEntry={handleDeleteEntry}
               onCheckStatus={handleCheckStatus}
+              onToggleAI={handleToggleAI}
+              onBulkToggleAI={handleBulkToggleAI}
             />
           )}
         </div>
@@ -326,6 +410,7 @@ const SitemapEditorTab = ({ domainId, domainName }) => {
         {showAIPanel && (
           <SitemapAIPanel
             domainId={domainId}
+            domainName={domain?.domain_name}
             entries={entries}
             session={session}
             onApplySuggestions={(suggestions) => {

@@ -221,6 +221,66 @@ class SitemapEntryViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return handle_api_error(logger, 'check entry status', e)
 
+    @action(detail=True, methods=['post'], url_path='toggle-ai')
+    def toggle_ai(self, request, pk=None):
+        """
+        Toggle AI analysis enabled for entry.
+        POST /api/v1/sitemap-editor/entries/{id}/toggle-ai/
+        """
+        try:
+            entry = SitemapEntry.objects.get(id=pk)
+            new_value = request.data.get('enabled')
+
+            if new_value is None:
+                entry.ai_analysis_enabled = not entry.ai_analysis_enabled
+            else:
+                entry.ai_analysis_enabled = bool(new_value)
+
+            entry.save(update_fields=['ai_analysis_enabled'])
+
+            return Response({
+                'id': entry.id,
+                'loc': entry.loc,
+                'ai_analysis_enabled': entry.ai_analysis_enabled,
+            })
+
+        except SitemapEntry.DoesNotExist:
+            return Response(
+                {'error': 'Entry not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return handle_api_error(logger, 'toggle entry AI', e)
+
+    @action(detail=False, methods=['post'], url_path='bulk-toggle-ai')
+    def bulk_toggle_ai(self, request):
+        """
+        Bulk toggle AI analysis enabled for multiple entries.
+        POST /api/v1/sitemap-editor/entries/bulk-toggle-ai/
+        Body: { entry_ids: [1,2,3], enabled: true }
+        """
+        try:
+            entry_ids = request.data.get('entry_ids', [])
+            enabled = request.data.get('enabled', True)
+
+            if not entry_ids:
+                return Response(
+                    {'error': 'entry_ids is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            updated = SitemapEntry.objects.filter(id__in=entry_ids).update(
+                ai_analysis_enabled=enabled
+            )
+
+            return Response({
+                'updated_count': updated,
+                'enabled': enabled,
+            })
+
+        except Exception as e:
+            return handle_api_error(logger, 'bulk toggle AI', e)
+
 
 class SitemapEditSessionViewSet(viewsets.ModelViewSet):
     """
@@ -395,6 +455,44 @@ class SitemapEditSessionViewSet(viewsets.ModelViewSet):
 
         except Exception as e:
             return handle_api_error(logger, 'get session diff', e)
+
+    @action(detail=False, methods=['post'], url_path='link-pages')
+    def link_pages(self, request):
+        """
+        Link existing sitemap entries to matching Page records.
+        POST /api/v1/sitemap-editor/sessions/link-pages/
+
+        Useful for entries created before auto-linking was added.
+        """
+        domain_id = request.data.get('domain_id')
+
+        if not domain_id:
+            return Response(
+                {'error': 'domain_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            domain = Domain.objects.get(id=domain_id)
+            service = SitemapEditorService()
+
+            result = service.link_entries_to_pages(domain)
+
+            if result.get('error'):
+                return Response(
+                    {'error': result.get('message')},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+            return Response(result)
+
+        except Domain.DoesNotExist:
+            return Response(
+                {'error': 'Domain not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return handle_api_error(logger, 'link entries to pages', e)
 
     @action(detail=False, methods=['post'])
     def sync(self, request):

@@ -9,6 +9,27 @@
 .table-toolbar {
   padding: 12px 16px;
   border-bottom: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ai-selection-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ai-count {
+  font-size: 13px;
+  color: #495057;
+  background: #e9ecef;
+  padding: 6px 12px;
+  border-radius: 16px;
+}
+
+.ai-count strong {
+  color: #007bff;
 }
 
 .btn-add {
@@ -98,6 +119,72 @@
 
 .row-invalid {
   background: #ffebee !important;
+}
+
+.row-ai-enabled {
+  /* Subtle highlight for AI-enabled rows */
+}
+
+/* AI Checkbox Column */
+.col-ai-select {
+  width: 50px;
+  text-align: center;
+}
+
+.checkbox-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+
+.checkbox-wrapper input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 18px;
+  width: 18px;
+  background-color: #fff;
+  border: 2px solid #ced4da;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.checkbox-wrapper:hover .checkmark {
+  border-color: #007bff;
+}
+
+.checkbox-wrapper input:checked ~ .checkmark {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+.checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+.checkbox-wrapper input:checked ~ .checkmark:after {
+  display: block;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 /* Column widths */
@@ -262,4 +349,109 @@
   text-align: center;
   color: #6c757d;
   padding: 40px 20px !important;
+}
+
+/* ==========================================================================
+   Responsive Styles
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .col-lastmod,
+  .col-changefreq {
+    display: none;
+  }
+
+  .sitemap-table th:nth-child(3),
+  .sitemap-table td:nth-child(3),
+  .sitemap-table th:nth-child(4),
+  .sitemap-table td:nth-child(4) {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    flex-wrap: wrap;
+  }
+
+  .loc-input {
+    min-width: 100%;
+    width: 100%;
+  }
+
+  .date-input,
+  .select-input,
+  .priority-input {
+    flex: 1;
+    min-width: 80px;
+  }
+
+  .sitemap-table th,
+  .sitemap-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .col-url {
+    min-width: 200px;
+  }
+
+  .col-priority {
+    display: none;
+  }
+
+  .sitemap-table th:nth-child(5),
+  .sitemap-table td:nth-child(5) {
+    display: none;
+  }
+
+  .action-btn {
+    padding: 6px;
+    font-size: 16px;
+    margin-right: 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .table-toolbar {
+    padding: 10px 12px;
+  }
+
+  .btn-add {
+    width: 100%;
+    text-align: center;
+  }
+
+  .add-entry-form {
+    padding: 12px;
+  }
+
+  .sitemap-table th,
+  .sitemap-table td {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .col-http {
+    display: none;
+  }
+
+  .sitemap-table th:nth-child(6),
+  .sitemap-table td:nth-child(6) {
+    display: none;
+  }
+
+  .status-badge {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+
+  .col-actions {
+    width: 90px;
+  }
+
+  .action-btn {
+    padding: 4px;
+    font-size: 14px;
+  }
 }
