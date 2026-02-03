@@ -1,0 +1,135 @@
+/**
+ * Tree Workspace Styles
+ */
+
+.tree-workspace {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 600px;
+  background: #F1F5F9;
+}
+
+.tree-workspace-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Loading State */
+.tree-workspace-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+}
+
+.tree-workspace-loading .loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #E2E8F0;
+  border-top-color: #6366F1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tree-workspace-loading p {
+  color: #64748B;
+  font-size: 14px;
+}
+
+/* Error State */
+.tree-workspace-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  padding: 24px;
+}
+
+.tree-workspace-error p {
+  color: #EF4444;
+  font-size: 14px;
+}
+
+.tree-workspace-error button {
+  padding: 8px 16px;
+  background: #6366F1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.tree-workspace-error button:hover {
+  background: #4F46E5;
+}
+
+/* Empty State */
+.tree-workspace-empty,
+.tree-workspace-select-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #64748B;
+}
+
+.tree-workspace-empty-tabs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  padding: 40px;
+  text-align: center;
+}
+
+.tree-workspace-empty-tabs .empty-icon {
+  font-size: 64px;
+  margin-bottom: 8px;
+}
+
+.tree-workspace-empty-tabs h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1E293B;
+  margin: 0;
+}
+
+.tree-workspace-empty-tabs p {
+  font-size: 14px;
+  color: #64748B;
+  margin: 0;
+}
+
+.tree-workspace-empty-tabs .add-tab-btn.primary {
+  margin-top: 16px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.tree-workspace-empty-tabs .add-tab-btn.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}

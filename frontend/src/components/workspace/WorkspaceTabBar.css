@@ -1,0 +1,182 @@
+/**
+ * Workspace Tab Bar Styles
+ */
+
+.workspace-tab-bar {
+  display: flex;
+  align-items: center;
+  background: #1E293B;
+  padding: 0 8px;
+  height: 44px;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.workspace-tab-bar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.workspace-tab-bar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.workspace-tab-bar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+
+/* Tab List */
+.tab-list {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Tab Item */
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #334155;
+  border-radius: 8px 8px 0 0;
+  color: #94A3B8;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  max-width: 200px;
+  min-width: 100px;
+  position: relative;
+  user-select: none;
+}
+
+.tab-item:hover {
+  background: #475569;
+  color: #E2E8F0;
+}
+
+.tab-item.active {
+  background: #F8FAFC;
+  color: #1E293B;
+}
+
+.tab-item.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+}
+
+.tab-item.drag-over {
+  background: #4F46E5;
+  color: white;
+}
+
+/* Unsaved Indicator */
+.unsaved-indicator {
+  width: 8px;
+  height: 8px;
+  background: #F59E0B;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Tab Name */
+.tab-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-name-input {
+  flex: 1;
+  background: transparent;
+  border: 1px solid #6366F1;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 13px;
+  color: inherit;
+  outline: none;
+  min-width: 60px;
+}
+
+.tab-item.active .tab-name-input {
+  background: white;
+  color: #1E293B;
+}
+
+/* Close Button */
+.tab-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.tab-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #EF4444;
+  opacity: 1;
+}
+
+.tab-item.active .tab-close-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Add Tab Button */
+.add-tab-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 2px dashed #475569;
+  border-radius: 8px;
+  color: #64748B;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.add-tab-btn:hover {
+  background: #334155;
+  border-color: #6366F1;
+  color: #6366F1;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .workspace-tab-bar {
+    padding: 0 4px;
+    height: 40px;
+  }
+
+  .tab-item {
+    padding: 6px 10px;
+    font-size: 12px;
+    min-width: 80px;
+  }
+
+  .add-tab-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+  }
+}

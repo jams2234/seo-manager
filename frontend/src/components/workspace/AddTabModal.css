@@ -1,0 +1,251 @@
+/**
+ * Add Tab Modal Styles
+ */
+
+.add-tab-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.add-tab-modal {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 480px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Modal Header */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1E293B;
+}
+
+.modal-header .close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #64748B;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.modal-header .close-btn:hover {
+  color: #1E293B;
+}
+
+/* Modal Body */
+.modal-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+}
+
+/* Search Box */
+.search-box {
+  margin-bottom: 16px;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-box input:focus {
+  border-color: #6366F1;
+}
+
+.search-box input::placeholder {
+  color: #94A3B8;
+}
+
+/* Domain List */
+.domain-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+}
+
+.domain-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.domain-list::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 3px;
+}
+
+.domain-list::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+
+.domain-list .empty-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: #64748B;
+  font-size: 14px;
+}
+
+/* Domain Item */
+.domain-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #F8FAFC;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.domain-item:hover:not(.in-workspace) {
+  background: #EEF2FF;
+  border-color: #C7D2FE;
+}
+
+.domain-item.selected {
+  background: #EEF2FF;
+  border-color: #6366F1;
+}
+
+.domain-item.in-workspace {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.domain-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.domain-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1E293B;
+}
+
+.domain-score {
+  font-size: 12px;
+  color: #64748B;
+}
+
+.domain-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-count {
+  font-size: 12px;
+  color: #64748B;
+}
+
+.in-workspace-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: #E2E8F0;
+  color: #64748B;
+  border-radius: 4px;
+}
+
+/* Modal Footer */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #E2E8F0;
+}
+
+.modal-footer button {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.modal-footer .cancel-btn {
+  background: white;
+  border: 1px solid #E2E8F0;
+  color: #64748B;
+}
+
+.modal-footer .cancel-btn:hover {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
+.modal-footer .add-btn {
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  border: none;
+  color: white;
+}
+
+.modal-footer .add-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.modal-footer .add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
