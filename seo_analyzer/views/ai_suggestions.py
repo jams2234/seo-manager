@@ -133,7 +133,7 @@ class AISuggestionViewSet(viewsets.ModelViewSet):
         - start_tracking: true/false - 자동 적용 후 추적 시작 여부 (기본: true)
         """
         suggestion = self.get_object()
-        deploy_to_git = request.data.get('deploy_to_git', False)
+        deploy_to_git = request.data.get('deploy_to_git', True)  # 기본값: Git 배포 활성화
         start_tracking = request.data.get('start_tracking', True)  # 기본값: 자동 추적 시작
 
         if suggestion.status not in ['pending', 'deferred']:

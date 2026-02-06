@@ -16,28 +16,24 @@ const DeploymentPreviewModal = ({
   loading,
   onConfirm,
 }) => {
-  const [deployToGit, setDeployToGit] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
 
-  useEffect(() => {
-    // Git 배포 가능하면 기본 체크
-    if (previewData?.git_config?.can_deploy) {
-      setDeployToGit(true);
-    }
-  }, [previewData]);
-
   if (!isOpen) return null;
+
+  // Git 설정 상태 확인
+  const gitConfig = previewData?.git_config || {};
+  const canDeployToGit = gitConfig.can_deploy;
 
   const handleConfirm = async () => {
     setIsDeploying(true);
     try {
-      await onConfirm(deployToGit);
+      // 항상 Git 배포 시도 (Git 설정이 되어 있으면)
+      await onConfirm(canDeployToGit);
     } finally {
       setIsDeploying(false);
     }
   };
 
-  const gitConfig = previewData?.git_config || {};
   const dbChanges = previewData?.db_changes || [];
   const gitChanges = previewData?.git_changes || [];
   const warnings = previewData?.warnings || [];
@@ -131,66 +127,85 @@ const DeploymentPreviewModal = ({
                   Git 배포
                 </h3>
 
-                <div className="git-config-status">
-                  <div className={`config-item ${gitConfig.enabled ? 'ok' : 'disabled'}`}>
-                    <span className="status-icon">{gitConfig.enabled ? '✅' : '❌'}</span>
-                    <span>Git 배포 {gitConfig.enabled ? '활성화' : '비활성화'}</span>
-                  </div>
-                  {gitConfig.enabled && (
-                    <>
-                      <div className={`config-item ${gitConfig.repository ? 'ok' : 'missing'}`}>
-                        <span className="status-icon">{gitConfig.repository ? '✅' : '❌'}</span>
-                        <span>저장소: {gitConfig.repository || '미설정'}</span>
+                {canDeployToGit ? (
+                  <>
+                    <div className="git-config-status">
+                      <div className="config-item ok">
+                        <span className="status-icon">✅</span>
+                        <span>Git 배포 준비 완료</span>
                       </div>
-                      <div className={`config-item ${gitConfig.has_token ? 'ok' : 'missing'}`}>
-                        <span className="status-icon">{gitConfig.has_token ? '✅' : '❌'}</span>
-                        <span>인증 토큰: {gitConfig.has_token ? '설정됨' : '미설정'}</span>
+                      <div className="config-item ok">
+                        <span className="status-icon">📦</span>
+                        <span>저장소: {gitConfig.repository}</span>
                       </div>
                       <div className="config-item">
                         <span className="status-icon">🌿</span>
                         <span>브랜치: {gitConfig.branch || 'main'}</span>
                       </div>
-                    </>
-                  )}
-                </div>
+                    </div>
 
-                {gitConfig.can_deploy && gitChanges.length > 0 && (
-                  <div className="git-changes">
-                    <h4>변경될 파일</h4>
-                    {gitChanges.map((change, idx) => (
-                      <div key={idx} className="git-change-item">
-                        <div className="change-type">{change.type === 'sitemap_update' ? '📄 Sitemap' : '📝 메타데이터'}</div>
-                        <div className="change-description">{change.description}</div>
-                        {change.possible_files && (
-                          <div className="possible-files">
-                            <span className="label">대상 파일 (예상):</span>
-                            <ul>
-                              {change.possible_files.map((file, fIdx) => (
-                                <li key={fIdx}>{file}</li>
-                              ))}
-                            </ul>
+                    {gitChanges.length > 0 && (
+                      <div className="git-changes">
+                        <h4>변경될 파일</h4>
+                        {gitChanges.map((change, idx) => (
+                          <div key={idx} className="git-change-item">
+                            <div className="change-type">{change.type === 'sitemap_update' ? '📄 Sitemap' : '📝 메타데이터'}</div>
+                            <div className="change-description">{change.description}</div>
+                            {change.possible_files && (
+                              <div className="possible-files">
+                                <span className="label">대상 파일 (예상):</span>
+                                <ul>
+                                  {change.possible_files.map((file, fIdx) => (
+                                    <li key={fIdx}>{file}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {change.type === 'metadata_update' && (
+                              <div className="new-value">
+                                <span className="label">{change.field}:</span>
+                                <code>{change.new_value}</code>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {change.type === 'metadata_update' && (
-                          <div className="new-value">
-                            <span className="label">{change.field}:</span>
-                            <code>{change.new_value}</code>
-                          </div>
-                        )}
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    )}
 
-                {gitConfig.can_deploy && (
-                  <label className="deploy-option">
-                    <input
-                      type="checkbox"
-                      checked={deployToGit}
-                      onChange={(e) => setDeployToGit(e.target.checked)}
-                    />
-                    <span>Git 저장소에 배포 (Vercel 자동 배포 트리거)</span>
-                  </label>
+                    <div className="deploy-notice success">
+                      <span className="notice-icon">✨</span>
+                      <span>DB 수정과 함께 Git 저장소에 자동 배포됩니다.</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="git-config-status">
+                    <div className="config-item disabled">
+                      <span className="status-icon">⚠️</span>
+                      <span>Git 배포 설정이 필요합니다</span>
+                    </div>
+                    {!gitConfig.enabled && (
+                      <div className="config-item missing">
+                        <span className="status-icon">❌</span>
+                        <span>Git 배포가 비활성화 상태입니다</span>
+                      </div>
+                    )}
+                    {gitConfig.enabled && !gitConfig.repository && (
+                      <div className="config-item missing">
+                        <span className="status-icon">❌</span>
+                        <span>Git 저장소가 설정되지 않았습니다</span>
+                      </div>
+                    )}
+                    {gitConfig.enabled && gitConfig.repository && !gitConfig.has_token && (
+                      <div className="config-item missing">
+                        <span className="status-icon">❌</span>
+                        <span>Git 토큰이 설정되지 않았습니다</span>
+                      </div>
+                    )}
+                    <div className="deploy-notice warning">
+                      <span className="notice-icon">⚠️</span>
+                      <span>DB에만 수정됩니다. 웹사이트에 반영하려면 Git 설정을 완료하세요.</span>
+                    </div>
+                  </div>
                 )}
               </div>
             </>
@@ -209,11 +224,11 @@ const DeploymentPreviewModal = ({
             {isDeploying ? (
               <>
                 <span className="spinner-small"></span>
-                배포 중...
+                {canDeployToGit ? '배포 중...' : '적용 중...'}
               </>
             ) : (
               <>
-                {deployToGit ? '적용 및 Git 배포' : 'DB에 적용'}
+                {canDeployToGit ? '✅ 적용 및 Git 배포' : '⚠️ DB에만 적용'}
               </>
             )}
           </button>
