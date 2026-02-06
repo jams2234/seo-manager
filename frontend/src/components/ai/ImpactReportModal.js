@@ -3,6 +3,7 @@
  * AI 제안 효과 분석 리포트 모달
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import ModalOverlay from '../common/ModalOverlay';
 import TrackingChart from './TrackingChart';
 import { aiSuggestionService } from '../../services/aiLearningService';
 import toastService from '../../services/toastService';
@@ -129,28 +130,28 @@ const ImpactReportModal = ({ suggestionId, onClose, onTrackingEnd }) => {
 
   if (loading) {
     return (
-      <div className="impact-report-modal-overlay" onClick={onClose}>
-        <div className="impact-report-modal" onClick={e => e.stopPropagation()}>
+      <ModalOverlay onClose={onClose} className="impact-report-modal-overlay">
+        <div className="impact-report-modal">
           <div className="modal-loading">
             <div className="spinner" />
             <span>데이터 로딩 중...</span>
           </div>
         </div>
-      </div>
+      </ModalOverlay>
     );
   }
 
   if (error) {
     return (
-      <div className="impact-report-modal-overlay" onClick={onClose}>
-        <div className="impact-report-modal" onClick={e => e.stopPropagation()}>
+      <ModalOverlay onClose={onClose} className="impact-report-modal-overlay">
+        <div className="impact-report-modal">
           <div className="modal-error">
             <div className="error-icon">⚠️</div>
             <div className="error-text">{error}</div>
             <button className="btn-retry" onClick={loadData}>다시 시도</button>
           </div>
         </div>
-      </div>
+      </ModalOverlay>
     );
   }
 
@@ -160,8 +161,8 @@ const ImpactReportModal = ({ suggestionId, onClose, onTrackingEnd }) => {
   const trendInfo = TREND_LABELS[summary?.overall_trend] || analysis_logs?.[0]?.trend_direction;
 
   return (
-    <div className="impact-report-modal-overlay" onClick={onClose}>
-      <div className="impact-report-modal" onClick={e => e.stopPropagation()}>
+    <ModalOverlay onClose={onClose} className="impact-report-modal-overlay">
+      <div className="impact-report-modal">
         {/* 헤더 */}
         <div className="modal-header">
           <div className="header-content">
@@ -410,7 +411,7 @@ const ImpactReportModal = ({ suggestionId, onClose, onTrackingEnd }) => {
           </div>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 };
 

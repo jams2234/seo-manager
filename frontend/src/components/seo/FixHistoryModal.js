@@ -1,4 +1,6 @@
+import toastService from '../../services/toastService';
 import React, { useState } from 'react';
+import ModalOverlay from '../common/ModalOverlay';
 import './FixHistoryModal.css';
 
 const FixHistoryModal = ({ issue, onClose, onRevert, onUpdateFixValue, gitEnabled }) => {
@@ -19,10 +21,10 @@ const FixHistoryModal = ({ issue, onClose, onRevert, onUpdateFixValue, gitEnable
     try {
       setReverting(true);
       await onRevert(issue.id, deployRevert);
-      alert('이슈가 성공적으로 되돌려졌습니다!');
+      toastService.success('이슈가 성공적으로 되돌려졌습니다!');
       onClose();
     } catch (err) {
-      alert('되돌리기 실패: ' + err.message);
+      toastService.error('되돌리기 실패: ' + err.message);
     } finally {
       setReverting(false);
     }
@@ -30,7 +32,7 @@ const FixHistoryModal = ({ issue, onClose, onRevert, onUpdateFixValue, gitEnable
 
   const handleSaveEdit = async () => {
     if (!editedValue.trim()) {
-      alert('수정값을 입력해주세요.');
+      toastService.warning('수정값을 입력해주세요.');
       return;
     }
 
@@ -45,16 +47,16 @@ const FixHistoryModal = ({ issue, onClose, onRevert, onUpdateFixValue, gitEnable
       const message = wasDeployed
         ? '수정값이 업데이트되었습니다!\n\n⚠️ 변경 사항을 웹사이트에 반영하려면 다시 Git에 배포해야 합니다.'
         : '수정값이 업데이트되었습니다!';
-      alert(message);
+      toastService.success(message);
       setEditing(false);
     } catch (err) {
-      alert('수정값 업데이트 실패: ' + err.message);
+      toastService.error('수정값 업데이트 실패: ' + err.message);
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="fix-history-modal" onClick={(e) => e.stopPropagation()}>
+    <ModalOverlay onClose={onClose} className="modal-overlay">
+      <div className="fix-history-modal">
         {/* Header */}
         <div className="modal-header">
           <h3>수정 내역</h3>
@@ -287,7 +289,7 @@ const FixHistoryModal = ({ issue, onClose, onRevert, onUpdateFixValue, gitEnable
           </div>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 };
 

@@ -1,0 +1,53 @@
+/**
+ * 공통 모달 오버레이 스타일
+ */
+
+.modal-overlay-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-overlay-container {
+  max-height: 90vh;
+  max-width: 90vw;
+  overflow: auto;
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 반응형 */
+@media (max-width: 768px) {
+  .modal-overlay-backdrop {
+    padding: 10px;
+  }
+
+  .modal-overlay-container {
+    max-height: 95vh;
+    max-width: 95vw;
+  }
+}

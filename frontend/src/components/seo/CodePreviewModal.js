@@ -1,4 +1,5 @@
 import React from 'react';
+import ModalOverlay from '../common/ModalOverlay';
 import './CodePreviewModal.css';
 
 const CodePreviewModal = ({
@@ -11,8 +12,8 @@ const CodePreviewModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="code-preview-overlay" onClick={onClose}>
-      <div className="code-preview-modal" onClick={e => e.stopPropagation()}>
+    <ModalOverlay onClose={onClose} className="code-preview-overlay">
+      <div className="code-preview-modal">
         <div className="code-preview-header">
           <h3>코드 변경 미리보기</h3>
           <button className="close-btn" onClick={onClose}>&times;</button>
@@ -164,7 +165,7 @@ const CodePreviewModal = ({
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 };
 

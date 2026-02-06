@@ -3,6 +3,7 @@
  * Modal for selecting a domain to add as a new tab
  */
 import React, { useState } from 'react';
+import ModalOverlay from '../common/ModalOverlay';
 import './AddTabModal.css';
 
 const AddTabModal = ({ domains, existingDomainIds, onAdd, onClose }) => {
@@ -35,8 +36,8 @@ const AddTabModal = ({ domains, existingDomainIds, onAdd, onClose }) => {
   };
 
   return (
-    <div className="add-tab-modal-overlay" onClick={onClose}>
-      <div className="add-tab-modal" onClick={(e) => e.stopPropagation()}>
+    <ModalOverlay onClose={onClose} className="add-tab-modal-overlay">
+      <div className="add-tab-modal">
         <div className="modal-header">
           <h3>도메인 추가</h3>
           <button className="close-btn" onClick={onClose}>
@@ -110,7 +111,7 @@ const AddTabModal = ({ domains, existingDomainIds, onAdd, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 };
 

@@ -3,6 +3,7 @@
  * 제안 적용 전 미리보기 모달
  */
 import React, { useState, useEffect } from 'react';
+import ModalOverlay from '../common/ModalOverlay';
 import { aiSuggestionService } from '../../services/aiLearningService';
 import DeploymentPreviewModal from './DeploymentPreviewModal';
 import { getTypeIcon, isAutoApplicableType } from '../../utils/aiUtils';
@@ -120,8 +121,8 @@ const AISuggestionPreviewModal = ({ suggestion, onClose, onAccept }) => {
   };
 
   return (
-    <div className="preview-modal-backdrop" onClick={onClose}>
-      <div className="preview-modal" onClick={(e) => e.stopPropagation()}>
+    <ModalOverlay onClose={onClose} className="preview-modal-backdrop">
+      <div className="preview-modal">
         {/* 헤더 */}
         <div className="preview-header">
           <div className="preview-title">
@@ -466,7 +467,7 @@ const AISuggestionPreviewModal = ({ suggestion, onClose, onAccept }) => {
           onConfirm={handleDeploymentConfirm}
         />
       </div>
-    </div>
+    </ModalOverlay>
   );
 };
 

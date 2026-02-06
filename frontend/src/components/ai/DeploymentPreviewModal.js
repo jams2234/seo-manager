@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ModalOverlay from '../common/ModalOverlay';
 import { getTypeLabel } from '../../utils/aiUtils';
 import './DeploymentPreviewModal.css';
 
@@ -42,8 +43,8 @@ const DeploymentPreviewModal = ({
   const warnings = previewData?.warnings || [];
 
   return (
-    <div className="deployment-preview-overlay" onClick={onClose}>
-      <div className="deployment-preview-modal" onClick={(e) => e.stopPropagation()}>
+    <ModalOverlay onClose={onClose} className="deployment-preview-overlay">
+      <div className="deployment-preview-modal">
         <div className="deployment-preview-header">
           <h2>배포 미리보기</h2>
           <button className="close-btn" onClick={onClose}>&times;</button>
@@ -218,7 +219,7 @@ const DeploymentPreviewModal = ({
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 };
 

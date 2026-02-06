@@ -4,6 +4,7 @@
  * 스케줄 시간 편집 기능 포함
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import ModalOverlay from '../common/ModalOverlay';
 import analyticsService from '../../services/analyticsService';
 import './ScheduleSettingsModal.css';
 
@@ -176,8 +177,8 @@ const ScheduleSettingsModal = ({ isOpen, onClose, domainId }) => {
   const groupedSchedules = groupSchedulesByType(scheduleData?.schedules);
 
   return (
-    <div className="schedule-modal-overlay" onClick={onClose}>
-      <div className="schedule-modal" onClick={e => e.stopPropagation()}>
+    <ModalOverlay onClose={onClose} className="schedule-modal-overlay">
+      <div className="schedule-modal">
         {/* Header */}
         <div className="schedule-modal-header">
           <h2>
@@ -444,7 +445,7 @@ const ScheduleSettingsModal = ({ isOpen, onClose, domainId }) => {
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 };
 

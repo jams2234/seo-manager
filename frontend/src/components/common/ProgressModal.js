@@ -3,6 +3,7 @@
  * Shows scan progress with status updates
  */
 import React from 'react';
+import ModalOverlay from './ModalOverlay';
 import './ProgressModal.css';
 
 const ProgressModal = ({ isOpen, progress, onClose, onComplete }) => {
@@ -15,7 +16,7 @@ const ProgressModal = ({ isOpen, progress, onClose, onComplete }) => {
   const isRunning = state === 'PROGRESS' || state === 'PENDING';
 
   return (
-    <div className="modal-overlay">
+    <ModalOverlay onClose={onClose} closeOnBackdrop={!isRunning} closeOnEscape={!isRunning}>
       <div className="progress-modal">
         <div className="modal-header">
           <h3>
@@ -67,7 +68,7 @@ const ProgressModal = ({ isOpen, progress, onClose, onComplete }) => {
           )}
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 };
 

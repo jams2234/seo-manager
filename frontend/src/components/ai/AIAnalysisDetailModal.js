@@ -3,6 +3,7 @@
  * AI 분석 실행 결과 상세 보기
  */
 import React, { useState } from 'react';
+import ModalOverlay from '../common/ModalOverlay';
 import { getTaskStatusColor } from '../../utils/aiUtils';
 import { formatDuration, formatDateTime } from '../../utils/dateUtils';
 import './AIAnalysisDetailModal.css';
@@ -21,8 +22,8 @@ const AIAnalysisDetailModal = ({ analysisRun, onClose }) => {
   const analysisDetails = resultSummary.analysis || {};
 
   return (
-    <div className="ai-analysis-modal-backdrop" onClick={onClose}>
-      <div className="ai-analysis-modal" onClick={(e) => e.stopPropagation()}>
+    <ModalOverlay onClose={onClose} className="ai-analysis-modal-backdrop">
+      <div className="ai-analysis-modal">
         {/* 헤더 */}
         <div className="modal-header">
           <div className="modal-title">
@@ -271,7 +272,7 @@ const AIAnalysisDetailModal = ({ analysisRun, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 };
 
