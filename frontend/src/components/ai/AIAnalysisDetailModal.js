@@ -2,36 +2,18 @@
  * AI Analysis Detail Modal Component
  * AI 분석 실행 결과 상세 보기
  */
-import React, { useState, useEffect } from 'react';
-import { aiLearningService } from '../../services/aiLearningService';
+import React, { useState } from 'react';
+import { getTaskStatusColor } from '../../utils/aiUtils';
+import { formatDuration, formatDateTime } from '../../utils/dateUtils';
 import './AIAnalysisDetailModal.css';
 
 const AIAnalysisDetailModal = ({ analysisRun, onClose }) => {
-  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('summary');
 
   if (!analysisRun) return null;
 
-  // 상태 배지 색상
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed': return '#10b981';
-      case 'running': return '#3b82f6';
-      case 'failed': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
-
-  // 소요 시간 포맷
-  const formatDuration = (duration) => {
-    if (!duration) return '-';
-    if (typeof duration === 'string') return duration;
-    const seconds = Math.round(duration);
-    if (seconds < 60) return `${seconds}초`;
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}분 ${remainingSeconds}초`;
-  };
+  // 상태 배지 색상 (aiUtils 사용)
+  const getStatusColor = getTaskStatusColor;
 
   // 결과 요약 파싱
   const resultSummary = analysisRun.result_summary || {};
@@ -68,17 +50,13 @@ const AIAnalysisDetailModal = ({ analysisRun, onClose }) => {
           <div className="info-item">
             <span className="info-label">시작</span>
             <span className="info-value">
-              {analysisRun.started_at
-                ? new Date(analysisRun.started_at).toLocaleString('ko-KR')
-                : '-'}
+              {formatDateTime(analysisRun.started_at)}
             </span>
           </div>
           <div className="info-item">
             <span className="info-label">완료</span>
             <span className="info-value">
-              {analysisRun.completed_at
-                ? new Date(analysisRun.completed_at).toLocaleString('ko-KR')
-                : '-'}
+              {formatDateTime(analysisRun.completed_at)}
             </span>
           </div>
           <div className="info-item">
