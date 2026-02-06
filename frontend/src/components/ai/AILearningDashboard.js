@@ -208,8 +208,8 @@ const AILearningDashboard = ({ domainId, domainName }) => {
           className={`tab-btn ${activeTab === 'suggestions' ? 'active' : ''}`}
           onClick={() => setActiveTab('suggestions')}
         >
-          💡 제안 {suggestionSummary?.pending_high_priority > 0 && (
-            <span className="badge-count">{suggestionSummary.pending_high_priority}</span>
+          💡 제안 {suggestionSummary?.by_status?.pending > 0 && (
+            <span className="badge-count">{suggestionSummary.by_status.pending}</span>
           )}
         </button>
         <button
@@ -325,27 +325,54 @@ const AILearningDashboard = ({ domainId, domainName }) => {
                 <div className="stat-header">
                   <span className="stat-icon">🗄️</span>
                   <h3>벡터 저장소</h3>
+                  {vectorStats?.available && (
+                    <span className="status-badge success">정상</span>
+                  )}
                 </div>
                 <div className="stat-body">
                   {vectorStats ? (
-                    <div className="stat-details">
-                      <div className="detail-row">
-                        <span>도메인 지식:</span>
-                        <strong>{vectorStats.collections?.domain_knowledge || 0}개</strong>
+                    <div className="vector-collections">
+                      <div className="collection-grid">
+                        <div className="collection-item">
+                          <span className="collection-icon">🌐</span>
+                          <span className="collection-name">도메인 지식</span>
+                          <strong className="collection-count">{vectorStats.collections?.domain_knowledge || 0}</strong>
+                        </div>
+                        <div className="collection-item">
+                          <span className="collection-icon">📄</span>
+                          <span className="collection-name">페이지 컨텍스트</span>
+                          <strong className="collection-count">{vectorStats.collections?.page_context || 0}</strong>
+                        </div>
+                        <div className="collection-item">
+                          <span className="collection-icon">🔧</span>
+                          <span className="collection-name">수정 이력</span>
+                          <strong className="collection-count">{vectorStats.collections?.fix_history || 0}</strong>
+                        </div>
+                        <div className="collection-item">
+                          <span className="collection-icon">📊</span>
+                          <span className="collection-name">분석 캐시</span>
+                          <strong className="collection-count">{vectorStats.collections?.analysis_cache || 0}</strong>
+                        </div>
+                        <div className="collection-item">
+                          <span className="collection-icon">🌳</span>
+                          <span className="collection-name">사이트 구조</span>
+                          <strong className="collection-count">{vectorStats.collections?.site_structure || 0}</strong>
+                        </div>
+                        <div className="collection-item">
+                          <span className="collection-icon">🗺️</span>
+                          <span className="collection-name">Sitemap 항목</span>
+                          <strong className="collection-count">{vectorStats.collections?.sitemap_entries || 0}</strong>
+                        </div>
+                        <div className="collection-item highlight">
+                          <span className="collection-icon">📈</span>
+                          <span className="collection-name">제안 추적</span>
+                          <strong className="collection-count">{vectorStats.collections?.suggestion_tracking || 0}</strong>
+                        </div>
                       </div>
-                      <div className="detail-row">
-                        <span>페이지 컨텍스트:</span>
-                        <strong>{vectorStats.collections?.page_context || 0}개</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>수정 이력:</span>
-                        <strong>{vectorStats.collections?.fix_history || 0}개</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>상태:</span>
-                        <strong className={vectorStats.available ? 'text-success' : 'text-error'}>
-                          {vectorStats.available ? '정상' : '비활성'}
-                        </strong>
+                      <div className="vector-total">
+                        총 임베딩: <strong>{
+                          Object.values(vectorStats.collections || {}).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0)
+                        }개</strong>
                       </div>
                     </div>
                   ) : (

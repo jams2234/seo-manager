@@ -41,8 +41,8 @@ const HealthScoreCard = ({
             )}
           </div>
           <div className="health-score-stats">
-            <span className="stat-item critical">{criticalCount} Critical</span>
-            <span className="stat-item warning">{warningCount} Warnings</span>
+            <span className="stat-item critical">{criticalCount} 심각</span>
+            <span className="stat-item warning">{warningCount} 경고</span>
           </div>
         </div>
       </div>
@@ -50,9 +50,9 @@ const HealthScoreCard = ({
         <button
           className="btn-auto-fix-all"
           onClick={onBulkAutoFix}
-          title="Automatically fix all issues (saves to DB, Git deployment is separate)"
+          title="모든 이슈를 자동 수정합니다 (DB에 저장, Git 배포는 별도)"
         >
-          Auto-fix {autoFixableCount} issues
+          🔧 {autoFixableCount}개 오토픽스
         </button>
       )}
     </div>

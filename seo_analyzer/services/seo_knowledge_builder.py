@@ -89,15 +89,15 @@ class SEOKnowledgeBuilder:
         # Infer content type
         content_type = self._infer_content_type(page.url)
 
-        # Get sibling pages (same depth)
+        # Get sibling pages (same depth) - 10개로 확장
         siblings = page.domain.pages.filter(
             depth_level=page.depth_level
-        ).exclude(id=page.id).values('url', 'title')[:5]
+        ).exclude(id=page.id).values('url', 'title')[:10]
 
-        # Get child pages
+        # Get child pages - 15개로 확장
         children = page.domain.pages.filter(
             parent_page=page
-        ).values('url', 'title')[:10]
+        ).values('url', 'title')[:15]
 
         return {
             'page': {
@@ -315,7 +315,7 @@ class SEOKnowledgeBuilder:
 
         for m in metrics:
             if m['top_queries']:
-                for query in m['top_queries'][:5]:  # Top 5 per page
+                for query in m['top_queries'][:10]:  # Top 10 per page (AI 학습 향상)
                     if isinstance(query, dict):
                         keyword = query.get('query', query.get('keyword', ''))
                         keyword_performance[keyword]['impressions'] += query.get('impressions', 0)
@@ -336,7 +336,7 @@ class SEOKnowledgeBuilder:
         keyword_list.sort(key=lambda x: x['impressions'], reverse=True)
 
         return {
-            'top_keywords': keyword_list[:20],
+            'top_keywords': keyword_list[:50],  # 50개로 확장 (AI 학습 향상)
             'total_keywords': len(keyword_list),
             'keyword_cannibalization': self._detect_cannibalization(keyword_performance),
         }

@@ -90,6 +90,9 @@ class ClaudeAPIClient:
         self.max_tokens = max_tokens or getattr(settings, 'CLAUDE_MAX_TOKENS', 4096)
         self.cache_ttl = getattr(settings, 'CLAUDE_CACHE_TTL', 86400)
 
+        # API 타임아웃 (초) - 기본 60초
+        self.timeout = getattr(settings, 'CLAUDE_API_TIMEOUT', 60.0)
+
         # Rate limiter
         rate_limit = getattr(settings, 'CLAUDE_RATE_LIMIT_PER_MINUTE', 50)
         self.rate_limiter = ClaudeRateLimiter(max_calls=rate_limit, period=60)
@@ -99,11 +102,17 @@ class ClaudeAPIClient:
 
     @property
     def client(self):
-        """Lazy load Anthropic client"""
+        """Lazy load Anthropic client with timeout"""
         if self._client is None:
             try:
                 import anthropic
-                self._client = anthropic.Anthropic(api_key=self.api_key)
+                import httpx
+                # httpx timeout 설정 (connect, read, write, pool 모두)
+                timeout = httpx.Timeout(self.timeout, connect=10.0)
+                self._client = anthropic.Anthropic(
+                    api_key=self.api_key,
+                    timeout=timeout,
+                )
             except ImportError:
                 raise ImportError("anthropic package not installed. Run: pip install anthropic")
         return self._client

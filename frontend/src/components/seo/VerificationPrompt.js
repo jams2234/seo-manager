@@ -12,11 +12,11 @@ const VerificationPrompt = ({ onVerify, onDismiss, analyzing }) => {
         <span role="img" aria-label="search">🔍</span>
       </div>
       <div className="verification-content">
-        <div className="verification-title">Deployment Complete! Verify SEO Improvements</div>
+        <div className="verification-title">배포 완료! SEO 개선사항을 검증하세요</div>
         <div className="verification-text">
-          Changes have been deployed to the website.
+          변경사항이 웹사이트에 배포되었습니다.
           <br />
-          Run SEO re-analysis to confirm improvements.
+          SEO 재분석으로 개선사항을 확인하세요.
         </div>
         <div className="verification-actions">
           <button
@@ -24,10 +24,10 @@ const VerificationPrompt = ({ onVerify, onDismiss, analyzing }) => {
             onClick={onVerify}
             disabled={analyzing}
           >
-            {analyzing ? 'Analyzing...' : 'Re-analyze SEO'}
+            {analyzing ? '분석 중...' : '🔍 SEO 재분석'}
           </button>
           <button className="btn-dismiss" onClick={onDismiss}>
-            Later
+            나중에
           </button>
         </div>
       </div>

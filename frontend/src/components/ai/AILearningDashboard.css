@@ -460,3 +460,80 @@
   font-size: 12px;
   color: #94a3b8;
 }
+
+/* Vector Collections Grid */
+.vector-collections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.collection-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.collection-item:hover {
+  background: #f1f5f9;
+}
+
+.collection-item.highlight {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #7dd3fc;
+}
+
+.collection-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.collection-name {
+  flex: 1;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collection-count {
+  font-weight: 600;
+  color: #1e293b;
+  min-width: 24px;
+  text-align: right;
+}
+
+.vector-total {
+  text-align: center;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.vector-total strong {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.stat-header .status-badge {
+  margin-left: auto;
+  margin-bottom: 0;
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.stat-header .status-badge.success {
+  background: #10b981;
+}

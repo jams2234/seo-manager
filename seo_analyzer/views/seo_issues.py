@@ -94,10 +94,22 @@ class SEOIssueViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def auto_fix(self, request, pk=None):
         """
-        Auto-fix a specific issue (saves to database only)
+        Auto-fix a specific issue, create AI suggestion, and optionally deploy to Git
         POST /api/v1/seo-issues/{id}/auto-fix/
+        Body: {
+            "deploy_to_git": true,  (기본값: true - Git 설정 시 자동 배포)
+            "start_tracking": true  (기본값: true - 적용 후 바로 추적 시작)
+        }
         """
+        from ..services.git_deployer import GitDeployer
+        from ..models import AISuggestion
+        from ..services.suggestion_tracking import suggestion_tracking_service
+        from ..services.vector_store import SEOVectorStore
+        from django.utils import timezone
+
         issue = self.get_object()
+        deploy_to_git = request.data.get('deploy_to_git', True)
+        start_tracking = request.data.get('start_tracking', True)
 
         if not issue.auto_fix_available:
             return Response(
@@ -112,7 +124,7 @@ class SEOIssueViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            logger.info(f"Auto-fixing issue {issue.id}: {issue.title} (DB only)")
+            logger.info(f"Auto-fixing issue {issue.id}: {issue.title}")
 
             auto_fix_service = AutoFixService()
             result = auto_fix_service.fix_issue(issue)
@@ -123,14 +135,83 @@ class SEOIssueViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            return Response({
+            domain = issue.page.domain
+            suggestion_type = 'title' if 'title' in issue.issue_type else 'description'
+
+            # === AI 제안 자동 생성 (SEO 오토픽스와 연결) ===
+            ai_suggestion = AISuggestion.objects.create(
+                domain=domain,
+                page=issue.page,
+                suggestion_type=suggestion_type,
+                priority=2,
+                title=f"[오토픽스] {issue.title}",
+                description=result.get('message', ''),
+                expected_impact=f"SEO 이슈 해결: {issue.issue_type}",
+                action_data={
+                    'source': 'seo_autofix',
+                    'issue_id': issue.id,
+                    'issue_type': issue.issue_type,
+                    f'old_{suggestion_type}': result.get('old_value'),
+                    f'new_{suggestion_type}': result.get('new_value'),
+                    'fix_method': result.get('method'),
+                },
+                is_auto_applicable=True,
+                status='applied',
+                applied_at=timezone.now(),
+            )
+            logger.info(f"Created AISuggestion {ai_suggestion.id} from SEO autofix")
+
+            response_data = {
                 'message': result.get('message'),
                 'issue_id': issue.id,
                 'method': result.get('method'),
                 'old_value': result.get('old_value'),
                 'new_value': result.get('new_value'),
                 'deployed_to_git': False,
-            })
+                'suggestion_id': ai_suggestion.id,
+            }
+
+            # === 추적 시작 (옵션) ===
+            if start_tracking:
+                tracking_result = suggestion_tracking_service.start_tracking(ai_suggestion.id)
+                if tracking_result.get('success'):
+                    response_data['tracking_started'] = True
+                    response_data['message'] += ' 추적 시작됨.'
+                    logger.info(f"Started tracking for suggestion {ai_suggestion.id}")
+
+            # === Git 배포 (설정되어 있고 요청된 경우) ===
+            if deploy_to_git and domain.git_enabled:
+                try:
+                    fixes = [{
+                        'page_url': issue.page.url,
+                        'field': suggestion_type,
+                        'old_value': result.get('old_value'),
+                        'new_value': result.get('new_value'),
+                    }]
+
+                    git_deployer = GitDeployer(domain)
+                    git_result = git_deployer.deploy_fixes(fixes)
+
+                    if git_result.get('success'):
+                        response_data['deployed_to_git'] = True
+                        response_data['message'] += ' Git 배포 완료.'
+                        response_data['git_result'] = git_result
+                    else:
+                        response_data['git_error'] = git_result.get('error')
+                except Exception as git_e:
+                    logger.error(f"Git deploy failed: {git_e}")
+                    response_data['git_error'] = str(git_e)
+
+            # === 벡터 저장소에 임베딩 ===
+            try:
+                vector_store = SEOVectorStore()
+                if vector_store.is_available():
+                    vector_store.embed_fix_history_from_suggestion(ai_suggestion)
+                    logger.info(f"Embedded fix history to vector store for suggestion {ai_suggestion.id}")
+            except Exception as vec_e:
+                logger.warning(f"Vector embedding failed (non-critical): {vec_e}")
+
+            return Response(response_data)
 
         except Exception as e:
             logger.error(f"Auto-fix failed for issue {issue.id}: {e}", exc_info=True)
@@ -143,10 +224,22 @@ class SEOIssueViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def bulk_fix(self, request):
         """
-        Auto-fix multiple issues at once (saves to database only)
+        Auto-fix multiple issues at once, create AI suggestions, and optionally deploy to Git
         POST /api/v1/seo-issues/bulk-fix/
+        Body: {
+            "issue_ids": [...],
+            "deploy_to_git": true,  (기본값: true - Git 설정 시 자동 배포)
+            "start_tracking": true  (기본값: true - 적용 후 바로 추적 시작)
+        }
         """
+        from ..services.git_deployer import GitDeployer
+        from ..models import AISuggestion
+        from ..services.suggestion_tracking import suggestion_tracking_service
+        from ..services.vector_store import SEOVectorStore
+
         issue_ids = request.data.get('issue_ids', [])
+        deploy_to_git = request.data.get('deploy_to_git', True)
+        start_tracking = request.data.get('start_tracking', True)
 
         if not issue_ids:
             return Response(
@@ -169,23 +262,67 @@ class SEOIssueViewSet(viewsets.ModelViewSet):
 
         auto_fix_service = AutoFixService()
         results = []
+        all_changes = []  # Git 배포용 변경사항 수집
+        created_suggestions = []  # 생성된 AI 제안 목록
         fixed_count = 0
         failed_count = 0
 
         for issue in issues:
             try:
                 result = auto_fix_service.fix_issue(issue)
-                results.append({
-                    'issue_id': issue.id,
-                    'issue_type': issue.issue_type,
-                    'success': result.get('success'),
-                    'message': result.get('message'),
-                })
 
                 if result.get('success'):
                     fixed_count += 1
+                    domain = issue.page.domain
+                    suggestion_type = 'title' if 'title' in issue.issue_type else 'description'
+
+                    # === AI 제안 자동 생성 ===
+                    ai_suggestion = AISuggestion.objects.create(
+                        domain=domain,
+                        page=issue.page,
+                        suggestion_type=suggestion_type,
+                        priority=2,
+                        title=f"[오토픽스] {issue.title}",
+                        description=result.get('message', ''),
+                        expected_impact=f"SEO 이슈 해결: {issue.issue_type}",
+                        action_data={
+                            'source': 'seo_autofix_bulk',
+                            'issue_id': issue.id,
+                            'issue_type': issue.issue_type,
+                            f'old_{suggestion_type}': result.get('old_value'),
+                            f'new_{suggestion_type}': result.get('new_value'),
+                            'fix_method': result.get('method'),
+                        },
+                        is_auto_applicable=True,
+                        status='applied',
+                        applied_at=timezone.now(),
+                    )
+                    created_suggestions.append(ai_suggestion)
+                    logger.info(f"Created AISuggestion {ai_suggestion.id} from bulk SEO autofix")
+
+                    # Git 배포용 변경사항 수집
+                    all_changes.append({
+                        'page_url': issue.page.url,
+                        'field': suggestion_type,
+                        'old_value': result.get('old_value'),
+                        'new_value': result.get('new_value'),
+                    })
+
+                    results.append({
+                        'issue_id': issue.id,
+                        'issue_type': issue.issue_type,
+                        'success': True,
+                        'message': result.get('message'),
+                        'suggestion_id': ai_suggestion.id,
+                    })
                 else:
                     failed_count += 1
+                    results.append({
+                        'issue_id': issue.id,
+                        'issue_type': issue.issue_type,
+                        'success': False,
+                        'message': result.get('message'),
+                    })
 
             except Exception as e:
                 logger.error(f"Bulk auto-fix failed for issue {issue.id}: {e}", exc_info=True)
@@ -197,14 +334,67 @@ class SEOIssueViewSet(viewsets.ModelViewSet):
                 })
                 failed_count += 1
 
-        return Response({
-            'message': f'Auto-fixed {fixed_count} out of {len(issue_ids)} issues (DB only)',
+        response_data = {
+            'message': f'{fixed_count}개 이슈 수정 완료',
             'fixed_count': fixed_count,
             'failed_count': failed_count,
             'total_requested': len(issue_ids),
             'results': results,
             'deployed_to_git': False,
-        })
+            'suggestions_created': len(created_suggestions),
+            'tracking_started': 0,
+        }
+
+        # === 추적 시작 (옵션) ===
+        if start_tracking and created_suggestions:
+            tracking_count = 0
+            for suggestion in created_suggestions:
+                try:
+                    tracking_result = suggestion_tracking_service.start_tracking(suggestion.id)
+                    if tracking_result.get('success'):
+                        tracking_count += 1
+                except Exception as track_e:
+                    logger.warning(f"Failed to start tracking for suggestion {suggestion.id}: {track_e}")
+            response_data['tracking_started'] = tracking_count
+            if tracking_count > 0:
+                response_data['message'] += f' {tracking_count}개 추적 시작.'
+                logger.info(f"Started tracking for {tracking_count} bulk autofix suggestions")
+
+        # Git 배포 (설정되어 있고 변경사항이 있는 경우)
+        if deploy_to_git and all_changes:
+            # 첫 번째 이슈의 도메인에서 Git 설정 확인
+            first_issue = issues.first()
+            if first_issue and first_issue.page.domain.git_enabled:
+                try:
+                    git_deployer = GitDeployer(first_issue.page.domain)
+                    git_result = git_deployer.deploy_fixes(all_changes)
+
+                    if git_result.get('success'):
+                        response_data['deployed_to_git'] = True
+                        response_data['message'] += ' Git 배포 완료.'
+                        response_data['git_result'] = git_result
+                    else:
+                        response_data['git_error'] = git_result.get('error')
+                except Exception as git_e:
+                    logger.error(f"Bulk Git deploy failed: {git_e}")
+                    response_data['git_error'] = str(git_e)
+
+        # === 벡터 저장소에 임베딩 ===
+        if created_suggestions:
+            try:
+                vector_store = SEOVectorStore()
+                if vector_store.is_available():
+                    embedded_count = 0
+                    for suggestion in created_suggestions:
+                        result = vector_store.embed_fix_history_from_suggestion(suggestion)
+                        if result:
+                            embedded_count += 1
+                    response_data['embeddings_created'] = embedded_count
+                    logger.info(f"Embedded {embedded_count} fix histories to vector store")
+            except Exception as vec_e:
+                logger.warning(f"Vector embedding failed (non-critical): {vec_e}")
+
+        return Response(response_data)
 
     @action(detail=True, methods=['patch'], url_path='update-fix')
     @transaction.atomic
@@ -357,15 +547,61 @@ class SEOIssueViewSet(viewsets.ModelViewSet):
                         verification_status='pending'
                     )
 
+                    # === AISuggestion 생성 및 추적 시작 ===
+                    from ..models import AISuggestion
+                    from ..services.suggestion_tracking import suggestion_tracking_service
+
+                    created_suggestions = 0
+                    tracking_started = 0
+                    for issue in issues:
+                        # 이미 연결된 AISuggestion이 있는지 확인
+                        existing = AISuggestion.objects.filter(
+                            page=issue.page,
+                            action_data__issue_id=issue.id
+                        ).first()
+
+                        if not existing:
+                            suggestion_type = 'description' if 'description' in issue.issue_type else 'title'
+                            ai_suggestion = AISuggestion.objects.create(
+                                domain=domain,
+                                page=issue.page,
+                                suggestion_type=suggestion_type,
+                                priority=2,
+                                title=f'[오토픽스] {issue.title}',
+                                description=issue.message or '',
+                                expected_impact=f'SEO 이슈 해결: {issue.issue_type}',
+                                action_data={
+                                    'source': 'seo_deploy_pending',
+                                    'issue_id': issue.id,
+                                    'issue_type': issue.issue_type,
+                                    f'old_{suggestion_type}': issue.current_value,
+                                    f'new_{suggestion_type}': issue.suggested_value,
+                                },
+                                is_auto_applicable=True,
+                                status='applied',
+                                applied_at=deployed_at,
+                            )
+                            created_suggestions += 1
+
+                            # 추적 시작
+                            try:
+                                result = suggestion_tracking_service.start_tracking(ai_suggestion.id)
+                                if result.get('success'):
+                                    tracking_started += 1
+                            except Exception as track_e:
+                                logger.warning(f"Failed to start tracking for suggestion {ai_suggestion.id}: {track_e}")
+
                     total_deployed += len(issue_ids)
                     deployment_results.append({
                         'domain': domain.domain_name,
                         'success': True,
                         'commit_hash': commit_hash,
                         'issues_count': len(issues),
+                        'suggestions_created': created_suggestions,
+                        'tracking_started': tracking_started,
                         'message': f'Successfully deployed {len(issues)} fixes'
                     })
-                    logger.info(f"Successfully deployed {len(issues)} fixes for domain {domain.domain_name}")
+                    logger.info(f"Successfully deployed {len(issues)} fixes for domain {domain.domain_name}, created {created_suggestions} suggestions")
                 else:
                     deployment_results.append({
                         'domain': domain.domain_name,

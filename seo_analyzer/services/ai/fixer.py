@@ -234,8 +234,8 @@ class AIAutoFixer:
             main = soup.find('main') or soup.find('article') or soup.find('body')
             if main:
                 text = main.get_text(separator=' ', strip=True)
-                # Limit to first 2000 chars for context
-                return text[:2000]
+                # Limit to first 4000 chars for context (AI 학습 향상)
+                return text[:4000]
             return ''
         except Exception as e:
             logger.error(f"Failed to extract text content: {e}")
@@ -566,11 +566,11 @@ class AIAutoFixer:
 - CTR: {search_console.get('ctr', 0):.2f}%
 - 평균 순위: {search_console.get('avg_position', 0):.1f}위"""
 
-        # Build top queries text with performance
+        # Build top queries text with performance (10개로 확장 - AI 학습 향상)
         queries_text = ""
         if top_queries:
             queries_list = []
-            for q in top_queries[:5]:
+            for q in top_queries[:10]:
                 if isinstance(q, dict):
                     queries_list.append(
                         f"'{q.get('query', '')}' (클릭: {q.get('clicks', 0)}, 순위: {q.get('position', 'N/A')})"
@@ -618,7 +618,7 @@ JSON 형식으로만 응답하세요."""
 
 URL: {url}
 현재 제목: {current_title or '없음'}
-페이지 내용: {content_snippet[:400] if content_snippet else '정보 없음'}
+페이지 내용: {content_snippet[:1000] if content_snippet else '정보 없음'}
 브랜드명: {brand_name or '없음'}
 {sc_text}
 
@@ -686,11 +686,11 @@ SEO 점수: {db_metrics.get('seo_score', 'N/A')}, 색인 상태: {'색인됨' if
 - CTR: {ctr:.2f}% ({ctr_status})
 - 평균 순위: {search_console.get('avg_position', 0):.1f}위"""
 
-        # Build queries text
+        # Build queries text (10개로 확장 - AI 학습 향상)
         queries_text = ""
         if top_queries:
             queries_list = []
-            for q in top_queries[:5]:
+            for q in top_queries[:10]:
                 if isinstance(q, dict):
                     queries_list.append(f"'{q.get('query', '')}' (CTR: {q.get('ctr', 0):.1f}%)")
                 else:
@@ -731,7 +731,7 @@ JSON 형식으로만 응답하세요."""
 URL: {url}
 페이지 제목: {title or '정보 없음'}
 현재 메타 설명: {current_desc or '없음'}
-페이지 내용: {content_snippet[:400] if content_snippet else '정보 없음'}
+페이지 내용: {content_snippet[:1000] if content_snippet else '정보 없음'}
 {sc_text}
 
 검색 유입 키워드: {queries_text or '정보 없음'}
@@ -755,13 +755,26 @@ URL: {url}
             return result
 
         data = result.get('parsed', {})
+        suggested_desc = data.get('suggested_description', '')
+        desc_len = len(suggested_desc)
+
+        # 길이 검증 및 경고
+        length_warning = None
+        if desc_len < 120:
+            length_warning = f'⚠️ {desc_len}자로 120자 미만 (권장: 120-160자)'
+            logger.warning(f"Generated description is too short: {desc_len} chars")
+        elif desc_len > 160:
+            length_warning = f'⚠️ {desc_len}자로 160자 초과 (권장: 120-160자)'
+            logger.warning(f"Generated description is too long: {desc_len} chars")
+
         return {
             'success': True,
-            'suggested_value': data.get('suggested_description', ''),
+            'suggested_value': suggested_desc,
             'explanation': data.get('explanation', ''),
             'confidence': data.get('confidence', 0.8),
+            'length_warning': length_warning,
             'metadata': {
-                'length': data.get('description_length'),
+                'length': desc_len,
                 'keywords_used': data.get('keywords_used', []),
                 'cta': data.get('cta_included'),
                 'uvp': data.get('unique_value_proposition'),
@@ -796,7 +809,7 @@ JSON 형식으로만 응답하세요."""
 URL: {url}
 페이지 제목(title): {title or '정보 없음'}
 현재 H1: {current_h1 or '없음'}
-페이지 내용 요약: {content_snippet[:300] if content_snippet else '정보 없음'}
+페이지 내용 요약: {content_snippet[:800] if content_snippet else '정보 없음'}
 
 다음 JSON 형식으로 응답하세요:
 {{
@@ -846,7 +859,7 @@ JSON 형식으로만 응답하세요."""
 URL: {url}
 페이지 제목: {title or '정보 없음'}
 현재 단어 수: {current_word_count}
-현재 내용 샘플: {content_snippet[:500] if content_snippet else '정보 없음'}
+현재 내용 샘플: {content_snippet[:1000] if content_snippet else '정보 없음'}
 
 다음 JSON 형식으로 응답하세요:
 {{
@@ -958,11 +971,11 @@ JSON 형식으로만 응답하세요."""
 CTR: {search_console.get('ctr', 0):.2f}% | 평균 순위: {search_console.get('avg_position', 0):.1f}위
 SEO 점수: {db_metrics.get('seo_score', 'N/A')} | 색인 상태: {'색인됨' if db_metrics.get('is_indexed') else '미색인'}"""
 
-        # Build queries text with performance
+        # Build queries text with performance (10개로 확장 - AI 학습 향상)
         queries_text = ""
         if top_queries:
             queries_list = []
-            for q in top_queries[:5]:
+            for q in top_queries[:10]:
                 if isinstance(q, dict):
                     queries_list.append(f"'{q.get('query', '')}' (클릭:{q.get('clicks', 0)}, 순위:{q.get('position', 'N/A')})")
                 else:
@@ -980,10 +993,11 @@ SEO 점수: {db_metrics.get('seo_score', 'N/A')} | 색인 상태: {'색인됨' i
 
 수정 원칙:
 - title: 50-60자, 실제 검색되는 키워드 우선 배치, 브랜드명은 | 뒤에
-- meta_description: 120-160자, CTR 향상을 위한 강력한 CTA 포함
+- meta_description: ⚠️ 반드시 120-160자! (이 범위 벗어나면 SEO 이슈 미해결), CTR 향상을 위한 강력한 CTA 포함
 - h1: 20-70자, 타이틀과 유사하지만 동일하지 않게
 
-중요: 실제 검색 데이터에 기반한 키워드를 활용하세요.
+⚠️ 중요: meta_description은 최소 120자, 최대 160자여야 합니다. 이 범위를 벗어나면 오류입니다!
+실제 검색 데이터에 기반한 키워드를 활용하세요.
 
 JSON 형식으로만 응답하세요."""
 
@@ -1064,13 +1078,20 @@ URL: {url}
         ai_confidence: float = None,
         page_context: Dict = None,
         user=None,
+        deploy_to_git: bool = True,  # 기본값: Git 배포
+        skip_db_record: bool = False,  # DB 기록 생략 옵션
     ) -> Dict:
         """
         Apply an AI-generated fix to an issue.
 
-        This updates the issue status and records the fix history.
+        This updates the issue status, applies the actual page change,
+        and optionally deploys to Git.
+
+        Args:
+            deploy_to_git: If True, deploy changes to Git (default True)
+            skip_db_record: If True, skip AIFixHistory recording
         """
-        from seo_analyzer.models import SEOIssue, AIFixHistory
+        from seo_analyzer.models import SEOIssue, AIFixHistory, Page
 
         try:
             issue = SEOIssue.objects.select_related('page').get(id=issue_id)
@@ -1105,20 +1126,22 @@ URL: {url}
                     'avg_position': search_console.get('avg_position'),
                 }
 
-            # Create fix history record
-            fix_history = AIFixHistory.objects.create(
-                page=issue.page,
-                issue=issue,
-                issue_type=issue.issue_type,
-                original_value=issue.current_value,
-                fixed_value=suggested_value,
-                ai_explanation=ai_explanation or '',
-                ai_confidence=ai_confidence or 0.0,
-                ai_model=self.client.model,
-                context_snapshot=context_snapshot,
-                pre_fix_metrics=pre_fix_metrics,
-                fix_status='applied',
-            )
+            # Create fix history record (optional)
+            fix_history = None
+            if not skip_db_record:
+                fix_history = AIFixHistory.objects.create(
+                    page=issue.page,
+                    issue=issue,
+                    issue_type=issue.issue_type,
+                    original_value=issue.current_value,
+                    fixed_value=suggested_value,
+                    ai_explanation=ai_explanation or '',
+                    ai_confidence=ai_confidence or 0.0,
+                    ai_model=self.client.model,
+                    context_snapshot=context_snapshot,
+                    pre_fix_metrics=pre_fix_metrics,
+                    fix_status='applied',
+                )
 
             # Update issue
             issue.status = 'auto_fixed'  # Change status to auto_fixed
@@ -1138,12 +1161,60 @@ URL: {url}
                 'ai_fix_explanation',
             ])
 
-            return {
+            # ===== 실제 Page 데이터 업데이트 =====
+            applied_changes = []
+            page = issue.page
+            issue_type = issue.issue_type
+
+            # 이슈 유형별 필드 매핑
+            title_issues = ['title_too_short', 'title_too_long', 'title_missing', 'missing_title']
+            desc_issues = ['meta_description_too_short', 'meta_description_too_long',
+                          'meta_description_missing', 'missing_meta_description']
+
+            if issue_type in title_issues:
+                old_value = page.title
+                page.title = suggested_value
+                page.save(update_fields=['title'])
+                applied_changes.append({
+                    'field': 'title',
+                    'old': old_value,
+                    'new': suggested_value,
+                    'page_url': page.url,
+                })
+            elif issue_type in desc_issues:
+                old_value = page.description
+                page.description = suggested_value
+                page.save(update_fields=['description'])
+                applied_changes.append({
+                    'field': 'description',
+                    'old': old_value[:100] if old_value else None,
+                    'new': suggested_value,
+                    'page_url': page.url,
+                })
+
+            result = {
                 'success': True,
                 'issue_id': issue_id,
-                'fix_history_id': fix_history.id,
-                'message': 'AI fix applied and recorded to history',
+                'fix_history_id': fix_history.id if not skip_db_record else None,
+                'message': 'AI 수정이 적용되었습니다.',
+                'applied_changes': applied_changes,
             }
+
+            # ===== Git 배포 =====
+            if deploy_to_git and applied_changes and page.domain.git_enabled:
+                git_result = self._deploy_to_git(page.domain, applied_changes)
+                result['git_result'] = git_result
+                if git_result.get('success'):
+                    result['message'] += ' Git 배포 완료.'
+                    # Update fix history to deployed status
+                    if not skip_db_record:
+                        fix_history.fix_status = 'deployed'
+                        fix_history.deployed_at = timezone.now()
+                        fix_history.save(update_fields=['fix_status', 'deployed_at'])
+                else:
+                    result['message'] += f" Git 배포 실패: {git_result.get('error', '알 수 없음')}"
+
+            return result
 
         except SEOIssue.DoesNotExist:
             return {
@@ -1235,12 +1306,19 @@ URL: {url}
                 'git_result': {...} if deploy_to_git
             }
         """
-        from seo_analyzer.models import Page, SitemapEntry, AIFixHistory
+        from seo_analyzer.models import Page, SitemapEntry, AIFixHistory, SEOIssue
 
         suggestion_type = suggestion.suggestion_type
         action_data = suggestion.action_data or {}
         page = suggestion.page
         applied_changes = []
+
+        # SEO 이슈 유형 매핑
+        issue_type_mapping = {
+            'title': ['title_too_short', 'title_too_long', 'title_missing', 'missing_title'],
+            'description': ['meta_description_too_short', 'meta_description_too_long',
+                           'meta_description_missing', 'missing_meta_description'],
+        }
 
         try:
             # =========================================================
@@ -1286,6 +1364,16 @@ URL: {url}
                         'message': f'제목이 업데이트되었습니다.',
                         'applied_changes': applied_changes,
                     }
+
+                    # 관련 SEO 이슈 자동 해결 처리
+                    related_issue_types = issue_type_mapping.get('title', [])
+                    updated_issues = SEOIssue.objects.filter(
+                        page=page,
+                        issue_type__in=related_issue_types,
+                        status='open'
+                    ).update(status='fixed')
+                    if updated_issues:
+                        result['resolved_issues'] = updated_issues
 
                     # Git 배포 (옵션)
                     if deploy_to_git and suggestion.domain.git_enabled:
@@ -1355,6 +1443,16 @@ URL: {url}
                         'message': f'메타 설명이 업데이트되었습니다.',
                         'applied_changes': applied_changes,
                     }
+
+                    # 관련 SEO 이슈 자동 해결 처리
+                    related_issue_types = issue_type_mapping.get('description', [])
+                    updated_issues = SEOIssue.objects.filter(
+                        page=page,
+                        issue_type__in=related_issue_types,
+                        status='open'
+                    ).update(status='fixed')
+                    if updated_issues:
+                        result['resolved_issues'] = updated_issues
 
                     # Git 배포 (옵션)
                     if deploy_to_git and suggestion.domain.git_enabled:

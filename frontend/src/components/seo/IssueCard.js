@@ -20,6 +20,15 @@ const IssueCard = ({
     }
   };
 
+  const getSeverityLabel = (severity) => {
+    switch (severity) {
+      case 'critical': return '심각';
+      case 'warning': return '경고';
+      case 'info': return '정보';
+      default: return severity;
+    }
+  };
+
   const getVerificationBadge = () => {
     if (variant !== 'fixed') return null;
 
@@ -27,9 +36,9 @@ const IssueCard = ({
       return (
         <span
           className="deployment-badge verified"
-          title={`Verified: ${issue.verified_at ? new Date(issue.verified_at).toLocaleString('ko-KR') : 'N/A'}`}
+          title={`검증됨: ${issue.verified_at ? new Date(issue.verified_at).toLocaleString('ko-KR') : 'N/A'}`}
         >
-          Verified
+          검증됨
         </span>
       );
     }
@@ -37,9 +46,9 @@ const IssueCard = ({
       return (
         <span
           className="deployment-badge needs-attention"
-          title="Issue still detected. May be CDN cache or deployment delay."
+          title="이슈가 아직 감지됩니다. CDN 캐시 또는 배포 지연일 수 있습니다."
         >
-          Needs Attention
+          주의 필요
         </span>
       );
     }
@@ -47,18 +56,18 @@ const IssueCard = ({
       return (
         <span
           className="deployment-badge pending-verification"
-          title={`Deployed to Git. Verify with SEO re-analysis.\nCommit: ${issue.deployment_commit_hash || 'N/A'}`}
+          title={`Git에 배포됨. SEO 재분석으로 검증하세요.\n커밋: ${issue.deployment_commit_hash || 'N/A'}`}
         >
-          Pending Verification
+          검증 대기
         </span>
       );
     }
     return (
       <span
         className="deployment-badge db-only"
-        title="Modified in database only. Not yet deployed to website."
+        title="데이터베이스에만 수정됨. 웹사이트에 아직 배포되지 않음."
       >
-        DB Only
+        DB만
       </span>
     );
   };
@@ -73,12 +82,12 @@ const IssueCard = ({
           }}
         >
           {variant === 'fixed'
-            ? (issue.status === 'auto_fixed' ? 'AUTO-FIXED' : 'FIXED')
-            : issue.severity
+            ? (issue.status === 'auto_fixed' ? '오토픽스' : '수정됨')
+            : getSeverityLabel(issue.severity)
           }
         </span>
         {variant === 'open' && issue.auto_fix_available && (
-          <span className="auto-fix-badge">Auto-fixable</span>
+          <span className="auto-fix-badge">자동 수정 가능</span>
         )}
         {variant === 'fixed' && getVerificationBadge()}
       </div>
@@ -88,19 +97,19 @@ const IssueCard = ({
 
       {issue.fix_suggestion && variant === 'open' && (
         <div className="issue-suggestion">
-          <strong>Suggestion:</strong> {issue.fix_suggestion}
+          <strong>제안:</strong> {issue.fix_suggestion}
         </div>
       )}
 
       {issue.current_value && (
         <div className="issue-values">
           <div className="value-item">
-            <span className="value-label">{variant === 'fixed' ? 'Before:' : 'Current:'}</span>
+            <span className="value-label">{variant === 'fixed' ? '변경 전:' : '현재 값:'}</span>
             <span className="value-text">{issue.current_value}</span>
           </div>
           {issue.suggested_value && (
             <div className="value-item">
-              <span className="value-label">{variant === 'fixed' ? 'After:' : 'Suggested:'}</span>
+              <span className="value-label">{variant === 'fixed' ? '변경 후:' : '제안 값:'}</span>
               <span className="value-text suggested">{issue.suggested_value}</span>
             </div>
           )}
@@ -109,9 +118,9 @@ const IssueCard = ({
 
       {variant === 'fixed' && issue.deployed_to_git && issue.deployment_commit_hash && (
         <div className="deployment-meta">
-          <strong>Commit:</strong> {issue.deployment_commit_hash.substring(0, 7)}
+          <strong>커밋:</strong> {issue.deployment_commit_hash.substring(0, 7)}
           {' | '}
-          <strong>Deployed:</strong> {new Date(issue.deployed_at).toLocaleString('ko-KR')}
+          <strong>배포:</strong> {new Date(issue.deployed_at).toLocaleString('ko-KR')}
         </div>
       )}
 
@@ -119,9 +128,9 @@ const IssueCard = ({
         <button
           className="btn-auto-fix"
           onClick={() => onAutoFix(issue.id)}
-          title="Automatically fix this issue (saves to DB, Git deployment is separate)"
+          title="이 이슈를 자동 수정합니다 (DB에 저장, Git 배포는 별도)"
         >
-          Auto-fix
+          🔧 오토픽스
         </button>
       )}
 
@@ -130,7 +139,7 @@ const IssueCard = ({
           className="btn-view-details"
           onClick={() => onViewDetails(issue)}
         >
-          Details & Revert
+          상세 및 되돌리기
         </button>
       )}
     </div>

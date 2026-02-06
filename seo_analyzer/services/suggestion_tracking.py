@@ -91,16 +91,43 @@ class SuggestionTrackingService:
             # baseline 메트릭 캡처
             baseline = self._capture_current_metrics(suggestion)
 
-            # 상태 업데이트
+            # 상태 업데이트 (원자적 트랜잭션)
             now = timezone.now()
-            suggestion.status = 'tracking'
-            suggestion.tracking_started_at = now
-            suggestion.baseline_metrics = baseline
-            suggestion.save(update_fields=[
-                'status', 'tracking_started_at', 'baseline_metrics', 'updated_at'
-            ])
+            today = now.date()
 
-            logger.info(f"✅ Started tracking for suggestion #{suggestion_id}")
+            with transaction.atomic():
+                suggestion.status = 'tracking'
+                suggestion.tracking_started_at = now
+                suggestion.baseline_metrics = baseline
+                suggestion.tracking_days = 1
+                suggestion.save(update_fields=[
+                    'status', 'tracking_started_at', 'baseline_metrics', 'tracking_days', 'updated_at'
+                ])
+
+                # 첫 번째 스냅샷 자동 생성 (Day 1)
+                SuggestionTrackingSnapshot.objects.create(
+                    suggestion=suggestion,
+                    date=today,
+                    day_number=1,
+                    impressions=baseline.get('impressions', 0),
+                    clicks=baseline.get('clicks', 0),
+                    ctr=baseline.get('ctr'),
+                    avg_position=baseline.get('position'),
+                    seo_score=baseline.get('seo_score'),
+                    performance_score=baseline.get('performance_score'),
+                    health_score=baseline.get('health_score'),
+                    keywords_count=baseline.get('keywords_count', 0),
+                    # 첫 스냅샷은 변화량 0
+                    impressions_change=0,
+                    clicks_change=0,
+                    ctr_change=0,
+                    position_change=None,
+                    seo_score_change=None,
+                    impressions_change_percent=0,
+                    clicks_change_percent=0,
+                )
+
+            logger.info(f"✅ Started tracking for suggestion #{suggestion_id} with Day 1 snapshot")
 
             return {
                 'success': True,
@@ -282,31 +309,32 @@ class SuggestionTrackingService:
             # 변화량 계산
             changes = self._calculate_changes(baseline, current_metrics)
 
-            # 스냅샷 생성
-            snapshot = SuggestionTrackingSnapshot.objects.create(
-                suggestion=suggestion,
-                date=today,
-                day_number=day_number,
-                impressions=current_metrics.get('impressions', 0),
-                clicks=current_metrics.get('clicks', 0),
-                ctr=current_metrics.get('ctr'),
-                avg_position=current_metrics.get('position'),
-                seo_score=current_metrics.get('seo_score'),
-                performance_score=current_metrics.get('performance_score'),
-                health_score=current_metrics.get('health_score'),
-                keywords_count=current_metrics.get('keywords_count', 0),
-                impressions_change=changes.get('impressions_change', 0),
-                clicks_change=changes.get('clicks_change', 0),
-                ctr_change=changes.get('ctr_change'),
-                position_change=changes.get('position_change'),
-                seo_score_change=changes.get('seo_score_change'),
-                impressions_change_percent=changes.get('impressions_change_percent'),
-                clicks_change_percent=changes.get('clicks_change_percent'),
-            )
+            # 스냅샷 생성 및 tracking_days 업데이트 (원자적 트랜잭션)
+            with transaction.atomic():
+                snapshot = SuggestionTrackingSnapshot.objects.create(
+                    suggestion=suggestion,
+                    date=today,
+                    day_number=day_number,
+                    impressions=current_metrics.get('impressions', 0),
+                    clicks=current_metrics.get('clicks', 0),
+                    ctr=current_metrics.get('ctr'),
+                    avg_position=current_metrics.get('position'),
+                    seo_score=current_metrics.get('seo_score'),
+                    performance_score=current_metrics.get('performance_score'),
+                    health_score=current_metrics.get('health_score'),
+                    keywords_count=current_metrics.get('keywords_count', 0),
+                    impressions_change=changes.get('impressions_change', 0),
+                    clicks_change=changes.get('clicks_change', 0),
+                    ctr_change=changes.get('ctr_change'),
+                    position_change=changes.get('position_change'),
+                    seo_score_change=changes.get('seo_score_change'),
+                    impressions_change_percent=changes.get('impressions_change_percent'),
+                    clicks_change_percent=changes.get('clicks_change_percent'),
+                )
 
-            # tracking_days 업데이트
-            suggestion.tracking_days = day_number
-            suggestion.save(update_fields=['tracking_days', 'updated_at'])
+                # tracking_days 업데이트
+                suggestion.tracking_days = day_number
+                suggestion.save(update_fields=['tracking_days', 'updated_at'])
 
             logger.info(f"📊 Captured snapshot day {day_number} for suggestion #{suggestion_id}")
 
@@ -983,16 +1011,26 @@ JSON 형식으로 응답해주세요:
                 'suggestions': [...]
             }
         """
+        from django.db.models import Prefetch
+
+        # N+1 쿼리 최적화: 최신 스냅샷만 prefetch
+        latest_snapshot_prefetch = Prefetch(
+            'tracking_snapshots',
+            queryset=SuggestionTrackingSnapshot.objects.order_by('-day_number')[:1],
+            to_attr='_latest_snapshots'
+        )
+
         queryset = AISuggestion.objects.filter(
             status='tracking'
-        ).select_related('domain', 'page')
+        ).select_related('domain', 'page').prefetch_related(latest_snapshot_prefetch)
 
         if domain_id:
             queryset = queryset.filter(domain_id=domain_id)
 
         suggestions = []
         for s in queryset:
-            latest_snapshot = s.tracking_snapshots.order_by('-day_number').first()
+            # prefetch된 스냅샷 사용
+            latest_snapshot = s._latest_snapshots[0] if s._latest_snapshots else None
 
             suggestions.append({
                 'id': s.id,

@@ -84,12 +84,12 @@ class AIAnalysisEngine:
             self._update_progress(progress_callback, 50, 100, "과거 수정 패턴 분석 중...")
             effective_patterns = self._get_effective_patterns(domain)
 
-            # Step 3.5: 실제 페이지 URL 목록 가져오기
+            # Step 3.5: 실제 페이지 URL 목록 가져오기 (100개로 확장 - AI 학습 향상)
             from seo_analyzer.models import Page
             page_urls = list(
                 Page.objects.filter(domain=domain)
                 .values_list('url', flat=True)
-                .order_by('url')[:50]
+                .order_by('url')[:100]
             )
 
             # Step 4: Claude 분석 (70%)
@@ -130,7 +130,7 @@ class AIAnalysisEngine:
     def _build_domain_context(self, domain) -> tuple:
         """도메인 컨텍스트 빌드"""
         try:
-            from .seo_knowledge_builder import SEOKnowledgeBuilder
+            from ..seo_knowledge_builder import SEOKnowledgeBuilder
 
             builder = SEOKnowledgeBuilder(domain)
             full_context = builder.build_full_context()
@@ -153,10 +153,10 @@ class AIAnalysisEngine:
             return ""
 
         try:
-            # 주요 이슈 유형 추출
+            # 주요 이슈 유형 추출 (10개로 확장 - RAG 검색 품질 향상)
             seo_health = context.get('seo_health', {})
             issue_patterns = seo_health.get('issue_patterns', [])
-            top_issues = [p.get('issue_type', '') for p in issue_patterns[:5]]
+            top_issues = [p.get('issue_type', '') for p in issue_patterns[:10]]
 
             # 쿼리 구성
             query = f"""
@@ -175,23 +175,29 @@ class AIAnalysisEngine:
             # 컨텍스트 조합
             context_parts = []
 
-            # 사이트 트리 구조 (우선순위 높음)
+            # 사이트 트리 구조 (우선순위 높음) - 5개로 확장
             structure_results = results.get('site_structure', {}).get('documents', [])
             if structure_results:
                 context_parts.append("=== 사이트 트리 구조 ===")
-                context_parts.extend(structure_results[:2])
+                context_parts.extend(structure_results[:5])
 
-            # 과거 수정 이력
+            # 과거 수정 이력 - 10개로 확장 (AI 학습 향상)
             fix_results = results.get('fix_history', {}).get('documents', [])
             if fix_results:
                 context_parts.append("=== 과거 AI 수정 이력 ===")
-                context_parts.extend(fix_results[:5])
+                context_parts.extend(fix_results[:10])
 
-            # 분석 캐시
+            # 분석 캐시 - 5개로 확장
             analysis_results = results.get('analysis_cache', {}).get('documents', [])
             if analysis_results:
                 context_parts.append("=== 이전 분석 결과 ===")
-                context_parts.extend(analysis_results[:3])
+                context_parts.extend(analysis_results[:5])
+
+            # 추적 제안 데이터 (NEW: AI 지속 학습용)
+            tracking_results = results.get('suggestion_tracking', {}).get('documents', [])
+            if tracking_results:
+                context_parts.append("=== 효과적이었던 AI 제안 추적 데이터 ===")
+                context_parts.extend(tracking_results[:10])
 
             return "\n\n".join(context_parts)
 
@@ -200,7 +206,10 @@ class AIAnalysisEngine:
             return ""
 
     def _get_effective_patterns(self, domain) -> List[Dict]:
-        """효과적이었던 수정 패턴 조회"""
+        """효과적이었던 수정 패턴 조회 (AIFixHistory + 추적 제안 포함)"""
+        patterns = []
+
+        # 1. AIFixHistory에서 효과적 수정 패턴
         try:
             from seo_analyzer.models import AIFixHistory
 
@@ -209,18 +218,54 @@ class AIAnalysisEngine:
                 effectiveness='effective',
             ).order_by('-ai_confidence')[:10]
 
-            return [
-                {
+            for fix in effective_fixes:
+                patterns.append({
+                    'source': 'fix_history',
                     'issue_type': fix.issue_type,
                     'pattern': fix.fixed_value[:200] if fix.fixed_value else None,
                     'explanation': fix.ai_explanation[:200] if fix.ai_explanation else None,
                     'confidence': fix.ai_confidence,
-                }
-                for fix in effective_fixes
-            ]
+                })
         except Exception as e:
-            logger.error(f"Failed to get effective patterns: {e}")
-            return []
+            logger.error(f"Failed to get effective fix patterns: {e}")
+
+        # 2. 추적 완료된 제안에서 효과적 패턴 (NEW: AI 지속 학습)
+        try:
+            from seo_analyzer.models import AISuggestion
+
+            tracked_suggestions = AISuggestion.objects.filter(
+                domain=domain,
+                status='tracked',
+                effectiveness_score__gte=60,  # 60점 이상만
+            ).order_by('-effectiveness_score')[:10]
+
+            for suggestion in tracked_suggestions:
+                impact = suggestion.impact_analysis or {}
+                baseline = suggestion.baseline_metrics or {}
+                final = suggestion.final_metrics or {}
+
+                # 변화량 계산
+                impressions_change = ""
+                if baseline.get('impressions') and final.get('impressions'):
+                    base = baseline['impressions']
+                    fin = final['impressions']
+                    if base > 0:
+                        pct = ((fin - base) / base) * 100
+                        impressions_change = f"노출수 {pct:+.1f}%"
+
+                patterns.append({
+                    'source': 'tracking',
+                    'issue_type': suggestion.suggestion_type,
+                    'pattern': suggestion.title[:200],
+                    'explanation': f"{impact.get('summary', '')} {impressions_change}".strip(),
+                    'confidence': suggestion.effectiveness_score / 100 if suggestion.effectiveness_score else 0,
+                    'tracking_days': suggestion.tracking_days,
+                    'effect': impact.get('overall_effect', 'unknown'),
+                })
+        except Exception as e:
+            logger.error(f"Failed to get effective tracking patterns: {e}")
+
+        return patterns
 
     def _run_claude_analysis(
         self,
@@ -236,18 +281,34 @@ class AIAnalysisEngine:
             return self._generate_fallback_analysis()
 
         try:
-            # 효과적 패턴 텍스트
+            # 효과적 패턴 텍스트 (수정 이력 + 추적 제안 통합)
             patterns_text = ""
             if effective_patterns:
-                patterns_text = "\n=== 효과적이었던 수정 패턴 ===\n"
-                for p in effective_patterns[:5]:
-                    patterns_text += f"- {p['issue_type']}: {p['pattern'][:100] if p['pattern'] else 'N/A'}... (신뢰도: {p['confidence']})\n"
+                # 수정 이력 패턴
+                fix_patterns = [p for p in effective_patterns if p.get('source') == 'fix_history']
+                if fix_patterns:
+                    patterns_text += "\n=== 효과적이었던 수정 패턴 (AIFixHistory) ===\n"
+                    for p in fix_patterns[:5]:
+                        patterns_text += f"- {p['issue_type']}: {p['pattern'][:100] if p['pattern'] else 'N/A'}... (신뢰도: {p['confidence']})\n"
 
-            # 실제 페이지 URL 목록
+                # 추적 제안 패턴 (NEW: AI 지속 학습)
+                tracking_patterns = [p for p in effective_patterns if p.get('source') == 'tracking']
+                if tracking_patterns:
+                    patterns_text += "\n=== 검증된 효과적 제안 패턴 (추적 완료) ===\n"
+                    patterns_text += "※ 아래 패턴들은 실제 적용 후 추적하여 효과가 검증된 제안입니다.\n"
+                    for p in tracking_patterns[:5]:
+                        tracking_days = p.get('tracking_days', 0)
+                        effect = p.get('effect', '')
+                        patterns_text += f"- [{p['issue_type']}] {p['pattern'][:80]}... "
+                        patterns_text += f"(효과: {effect}, 추적 {tracking_days}일, 신뢰도: {p['confidence']:.2f})\n"
+                        if p.get('explanation'):
+                            patterns_text += f"  → 결과: {p['explanation'][:100]}\n"
+
+            # 실제 페이지 URL 목록 (100개로 확장 - AI 학습 향상)
             page_urls_text = ""
             if page_urls:
                 page_urls_text = "\n=== 실제 페이지 URL 목록 (page_suggestions에서 사용할 것) ===\n"
-                for url in page_urls[:50]:  # 최대 50개
+                for url in page_urls[:100]:  # 최대 100개
                     page_urls_text += f"- {url}\n"
 
             # GSC 연동 상태 추가
@@ -261,8 +322,14 @@ class AIAnalysisEngine:
 분석 원칙:
 1. 데이터 기반 - Search Console, Lighthouse 데이터 활용
 2. 우선순위 - 영향도와 구현 난이도 기준
-3. 학습 - 과거 효과적이었던 패턴 참고
+3. 학습 - 과거 효과적이었던 패턴 참고 (⭐ 중요)
 4. 구체성 - 모호한 조언 대신 구체적인 액션 제시
+
+⭐ 학습 데이터 활용 (중요):
+- "검증된 효과적 제안 패턴" 섹션에 있는 패턴들은 실제 적용 후 추적하여 효과가 검증된 것입니다.
+- 이 패턴들을 참고하여 유사한 상황에서 유사한 제안을 생성하세요.
+- 효과가 positive였던 패턴의 스타일과 접근 방식을 학습하세요.
+- 추적 기간이 길고 신뢰도가 높은 패턴일수록 더 신뢰할 수 있습니다.
 
 ⚠️ 중요 규칙 (반드시 준수):
 
@@ -353,7 +420,7 @@ JSON 형식으로 응답하세요."""
             "new_title": "title 타입 필수: 새 제목 (50-60자, SEO 최적화)",
 
             "old_description": "description 타입 필수: 현재 메타설명",
-            "new_description": "description 타입 필수: 새 메타설명 (120-160자, 키워드 포함)",
+            "new_description": "⚠️ 반드시 120-160자! (이 범위 벗어나면 SEO 이슈 미해결) 키워드 포함한 매력적인 설명",
 
             "manual_guide": "content/structure 등 자동 적용 불가시 수동 가이드"
         }}
@@ -611,9 +678,18 @@ JSON 형식으로 응답하세요."""
             if sugg_type == 'title' and page_sugg.get('new_title'):
                 is_auto = True
 
-            # description 타입: new_description이 있어야 자동 적용 가능
+            # description 타입: new_description이 있고 120-160자 범위여야 자동 적용 가능
             elif sugg_type == 'description' and page_sugg.get('new_description'):
-                is_auto = True
+                new_desc = page_sugg.get('new_description', '')
+                desc_len = len(new_desc)
+                if 120 <= desc_len <= 160:
+                    is_auto = True
+                else:
+                    # 길이 미달/초과 시 경고 추가
+                    logger.warning(f"Description length {desc_len} is not in 120-160 range for page {page_url}")
+                    page_sugg['length_warning'] = f'{desc_len}자 (권장: 120-160자)'
+                    # 길이가 너무 짧으면 자동 적용 비활성화
+                    is_auto = desc_len >= 100  # 최소 100자 이상이면 허용
 
             # keyword 타입: keywords가 있으면 AI가 자동으로 콘텐츠 최적화 가능
             elif sugg_type == 'keyword' and page_sugg.get('keywords'):
@@ -717,14 +793,14 @@ JSON 형식으로 응답하세요."""
             qw_type = quick_win_data.get('quick_win_type', '') if isinstance(quick_win_data, dict) else ''
 
             if qw_type == 'bulk_fix_descriptions':
-                # 메타 설명이 없거나 짧은 페이지 조회 (120자 미만)
+                # 메타 설명이 없거나 짧은 페이지 조회 (80자 미만) - 20개로 확장
                 from django.db.models import Q
                 from django.db.models.functions import Length
                 short_desc_pages = Page.objects.filter(domain=domain).annotate(
                     desc_len=Length('description')
                 ).filter(
                     Q(description__isnull=True) | Q(description='') | Q(desc_len__lt=80)
-                ).values('id', 'url', 'title', 'description')[:10]
+                ).values('id', 'url', 'title', 'description')[:20]
 
                 for p in short_desc_pages:
                     affected_pages.append({
@@ -738,14 +814,14 @@ JSON 형식으로 응답하세요."""
                 qw_desc = f"메타 설명 최적화 ({len(affected_pages)}개 페이지)"
 
             elif qw_type == 'bulk_fix_titles':
-                # 제목이 없거나 짧은 페이지 조회
+                # 제목이 없거나 짧은 페이지 조회 - 20개로 확장
                 from django.db.models import Q
                 from django.db.models.functions import Length
                 short_title_pages = Page.objects.filter(domain=domain).annotate(
                     title_len=Length('title')
                 ).filter(
                     Q(title__isnull=True) | Q(title='') | Q(title_len__lt=30)
-                ).values('id', 'url', 'title')[:10]
+                ).values('id', 'url', 'title')[:20]
 
                 for p in short_title_pages:
                     affected_pages.append({

@@ -416,21 +416,46 @@ def ai_auto_analysis(self, domain_id: int, trigger_type: str = 'manual'):
         run.result_summary = result.get('summary', {})
         run.save()
 
-        # 제안 생성
+        # 제안 생성 (중복 체크)
+        created_count = 0
+        skipped_count = 0
         with transaction.atomic():
             for suggestion in result.get('suggestions', []):
+                suggestion_type = suggestion.get('type', 'general')
+                page_id = suggestion.get('page_id')
+                title = suggestion.get('title', '')
+
+                # 중복 체크: 같은 도메인, 같은 유형, 같은 페이지, 같은 제목(앞 50자)이면서
+                # pending/accepted 상태인 제안이 이미 있으면 건너뜀
+                existing = AISuggestion.objects.filter(
+                    domain=domain,
+                    suggestion_type=suggestion_type,
+                    page_id=page_id,
+                    title__startswith=title[:50] if title else '',
+                    status__in=['pending', 'accepted'],
+                ).exists()
+
+                if existing:
+                    skipped_count += 1
+                    logger.debug(f"Skipping duplicate suggestion: {title[:50]}")
+                    continue
+
                 AISuggestion.objects.create(
                     domain=domain,
                     analysis_run=run,
-                    page_id=suggestion.get('page_id'),
-                    suggestion_type=suggestion.get('type', 'general'),
+                    page_id=page_id,
+                    suggestion_type=suggestion_type,
                     priority=suggestion.get('priority', 2),
-                    title=suggestion.get('title', ''),
+                    title=title,
                     description=suggestion.get('description', ''),
                     expected_impact=suggestion.get('expected_impact'),
                     action_data=suggestion.get('action_data', {}),
                     is_auto_applicable=suggestion.get('is_auto_applicable', False),
                 )
+                created_count += 1
+
+        if skipped_count > 0:
+            logger.info(f"AI analysis: created {created_count}, skipped {skipped_count} duplicate suggestions")
 
         logger.info(f"AI auto-analysis completed for {domain.domain_name}")
 

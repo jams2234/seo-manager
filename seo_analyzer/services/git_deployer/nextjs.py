@@ -176,6 +176,11 @@ class NextJSMetadataUpdater(MetadataUpdater):
         Returns:
             Tuple of (updated_content, was_modified)
         """
+        # Handle None or empty new_value
+        if not new_value:
+            logger.warning(f"Cannot update {field}: new_value is None or empty")
+            return content, False
+
         # Escape special characters in the new value
         # Handle backslashes and quotes
         escaped_value = new_value.replace('\\', '\\\\')
@@ -205,5 +210,73 @@ class NextJSMetadataUpdater(MetadataUpdater):
                 logger.debug(f"Updated {field} using {quote_type} quote pattern")
                 return updated_content, True
 
-        logger.warning(f"Could not find {field} field in metadata")
+        # Field not found - try to add it to the metadata object
+        logger.info(f"Field '{field}' not found, attempting to add it")
+        updated_content, added = self._add_field(content, field, new_value)
+        if added:
+            return updated_content, True
+
+        logger.warning(f"Could not find or add {field} field in metadata")
         return content, False
+
+    def _add_field(self, content: str, field: str, new_value: str) -> tuple:
+        """
+        Add a new field to the metadata object if it doesn't exist
+
+        Args:
+            content: File content
+            field: Field name ('title' or 'description')
+            new_value: Value to set
+
+        Returns:
+            Tuple of (updated_content, was_added)
+        """
+        # Escape quotes in value
+        escaped_value = new_value.replace('\\', '\\\\').replace("'", "\\'")
+
+        # Find the metadata object and its closing brace
+        # Look for: export const metadata: Metadata = { ... };
+        metadata_start = re.search(r'export\s+const\s+metadata[^{]*\{', content, re.DOTALL)
+        if not metadata_start:
+            logger.warning("Could not find metadata object declaration")
+            return content, False
+
+        # Find the closing }; of the metadata object
+        # Start searching from after the opening brace
+        start_pos = metadata_start.end()
+        brace_count = 1
+        end_pos = start_pos
+
+        for i, char in enumerate(content[start_pos:], start_pos):
+            if char == '{':
+                brace_count += 1
+            elif char == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    end_pos = i
+                    break
+
+        if brace_count != 0:
+            logger.warning("Could not find matching closing brace for metadata object")
+            return content, False
+
+        # Insert new field before the closing brace
+        # Find the last content before }
+        metadata_content = content[start_pos:end_pos]
+
+        # Check if there's already content (needs comma)
+        stripped_content = metadata_content.rstrip()
+        needs_comma = stripped_content and not stripped_content.endswith(',')
+
+        if needs_comma:
+            # Find the last non-whitespace position and add comma there
+            last_content_pos = start_pos + len(stripped_content)
+            content = content[:last_content_pos] + ',' + content[last_content_pos:]
+            end_pos += 1  # Adjust for added comma
+
+        # Insert the new field
+        new_field_line = f"\n  {field}: '{escaped_value}',"
+        updated_content = content[:end_pos] + new_field_line + "\n" + content[end_pos:]
+
+        logger.info(f"Added {field} field to metadata object")
+        return updated_content, True

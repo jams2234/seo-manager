@@ -61,6 +61,8 @@ class AISuggestionListSerializer(ModelSerializer):
             'suggestion_type', 'priority', 'title', 'description',
             'expected_impact', 'action_data',
             'is_auto_applicable', 'status', 'created_at',
+            # 추적 관련 필드 추가
+            'tracking_started_at', 'tracking_days', 'effectiveness_score',
         ]
 
     def get_domain_name(self, obj):
@@ -174,11 +176,15 @@ class AISuggestionViewSet(viewsets.ModelViewSet):
 
                     # 자동 추적 시작 (페이지가 있는 경우에만)
                     tracking_result = None
+                    tracking_started = False
                     if start_tracking and suggestion.page:
                         try:
                             from ..services.suggestion_tracking import suggestion_tracking_service
                             tracking_result = suggestion_tracking_service.start_tracking(suggestion.id)
                             if tracking_result.get('success'):
+                                tracking_started = True
+                                # 추적 시작됨 - DB에서 최신 상태 다시 조회
+                                suggestion.refresh_from_db()
                                 logger.info(f"Auto-started tracking for suggestion {suggestion.id}")
                         except Exception as te:
                             logger.warning(f"Failed to auto-start tracking: {te}")
@@ -187,11 +193,11 @@ class AISuggestionViewSet(viewsets.ModelViewSet):
                     return Response({
                         'success': True,
                         'message': '제안이 자동으로 적용되었습니다.' + (
-                            ' 효과 추적이 시작되었습니다.' if tracking_result and tracking_result.get('success') else ''
+                            ' 효과 추적이 시작되었습니다.' if tracking_started else ''
                         ),
                         'result': result,
                         'tracking': tracking_result,
-                        'status': suggestion.status,  # 'tracking' if tracking started
+                        'status': suggestion.status,  # 'tracking' if tracking started, else 'applied'
                     })
                 else:
                     return Response({
