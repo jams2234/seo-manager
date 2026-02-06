@@ -156,51 +156,54 @@ class SuggestionTrackingService:
         domain = suggestion.domain
         page = suggestion.page
 
-        # 1. GSC 데이터 가져오기
+        # 1. GSC 데이터 가져오기 (30일 범위로 bulk 조회 후 페이지 매칭)
         try:
             gsc = self._get_gsc_service()
             site_url = f"sc-domain:{domain.domain_name}"
 
-            # 최근 7일 데이터
-            end_date = (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d')  # GSC 3일 지연
-            start_date = (datetime.now() - timedelta(days=10)).strftime('%Y-%m-%d')
-
             if page:
-                # 페이지 레벨 데이터
-                gsc_data = gsc.get_page_analytics(
-                    site_url=site_url,
-                    page_url=page.url,
-                    start_date=start_date,
-                    end_date=end_date
-                )
+                # get_all_page_analytics로 30일 데이터 조회 (더 정확함)
+                all_pages_result = gsc.get_all_page_analytics(site_url)
 
-                if not gsc_data.get('error'):
-                    metrics['impressions'] = gsc_data.get('impressions', 0)
-                    metrics['clicks'] = gsc_data.get('clicks', 0)
-                    metrics['ctr'] = gsc_data.get('ctr', 0)
-                    metrics['position'] = gsc_data.get('avg_position', 0)
-                    metrics['keywords_count'] = gsc_data.get('query_count', 0)
+                if not all_pages_result.get('error'):
+                    pages_data = all_pages_result.get('pages', {})
+                    page_url = page.url
+
+                    # URL 매칭 (trailing slash 처리)
+                    page_metrics = pages_data.get(page_url)
+                    if not page_metrics and page_url.endswith('/'):
+                        page_metrics = pages_data.get(page_url.rstrip('/'))
+                    if not page_metrics and not page_url.endswith('/'):
+                        page_metrics = pages_data.get(page_url + '/')
+
+                    if page_metrics:
+                        metrics['impressions'] = page_metrics.get('impressions', 0)
+                        metrics['clicks'] = page_metrics.get('clicks', 0)
+                        metrics['ctr'] = page_metrics.get('ctr', 0)
+                        metrics['position'] = page_metrics.get('position', 0)
+
+                        # 키워드 수는 별도 조회
+                        try:
+                            page_detail = gsc.get_page_analytics(site_url, page_url)
+                            if not page_detail.get('error'):
+                                metrics['keywords_count'] = page_detail.get('query_count', 0)
+                        except Exception:
+                            pass
             else:
                 # 도메인 레벨 데이터 (페이지가 없는 경우)
-                gsc_data = gsc.get_search_analytics(
-                    site_url=site_url,
-                    start_date=start_date,
-                    end_date=end_date,
-                    dimensions=['date'],
-                    row_limit=100
-                )
+                all_pages_result = gsc.get_all_page_analytics(site_url)
 
-                if not gsc_data.get('error'):
-                    rows = gsc_data.get('rows', [])
-                    if rows:
-                        metrics['impressions'] = sum(r.get('impressions', 0) for r in rows)
-                        metrics['clicks'] = sum(r.get('clicks', 0) for r in rows)
+                if not all_pages_result.get('error'):
+                    pages_data = all_pages_result.get('pages', {})
+                    if pages_data:
+                        metrics['impressions'] = sum(p.get('impressions', 0) for p in pages_data.values())
+                        metrics['clicks'] = sum(p.get('clicks', 0) for p in pages_data.values())
                         total_impressions = metrics['impressions']
                         if total_impressions > 0:
                             metrics['ctr'] = round((metrics['clicks'] / total_impressions) * 100, 2)
-                        metrics['position'] = round(
-                            sum(r.get('position', 0) for r in rows) / len(rows), 1
-                        ) if rows else 0
+                        positions = [p.get('position', 0) for p in pages_data.values() if p.get('position')]
+                        if positions:
+                            metrics['position'] = round(sum(positions) / len(positions), 1)
 
         except Exception as e:
             logger.warning(f"GSC data fetch failed: {e}")
