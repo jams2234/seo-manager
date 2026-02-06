@@ -1,0 +1,264 @@
+/**
+ * AI Learning Quality Guide Styles
+ * 학습 품질 향상 가이드 스타일
+ */
+
+.quality-guide {
+  padding: 20px;
+}
+
+/* Header */
+.quality-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  color: white;
+  margin-bottom: 24px;
+}
+
+.quality-score-container {
+  flex-shrink: 0;
+}
+
+.quality-score-ring {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quality-score-inner {
+  width: 80px;
+  height: 80px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.quality-score-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.quality-score-label {
+  font-size: 10px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.quality-level-info {
+  flex: 1;
+}
+
+.quality-level-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 8px;
+}
+
+.quality-description {
+  margin: 0;
+  font-size: 15px;
+  opacity: 0.95;
+  line-height: 1.5;
+}
+
+/* Sections */
+.quality-section {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.quality-section h4 {
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.quality-section ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quality-section li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.quality-section li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.item-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item-text {
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.4;
+}
+
+.item-detail {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* Strengths Section */
+.quality-section.strengths {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.quality-section.strengths h4 {
+  color: #166534;
+}
+
+.quality-section.strengths .item-text {
+  color: #15803d;
+}
+
+/* Improvements Section */
+.quality-section.improvements {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.quality-section.improvements h4 {
+  color: #92400e;
+}
+
+.quality-section.improvements .item-text {
+  color: #78350f;
+}
+
+/* Actions Section */
+.quality-section.actions {
+  background: #f8fafc;
+}
+
+.quality-section.actions h4 {
+  margin-bottom: 12px;
+}
+
+.actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.action-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.action-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.action-priority {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.action-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.action-text {
+  font-size: 14px;
+  color: #374151;
+}
+
+/* Tips */
+.quality-tips {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 8px;
+}
+
+.quality-tips h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.quality-tips ul {
+  margin: 0;
+  padding: 0 0 0 20px;
+}
+
+.quality-tips li {
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.quality-tips li:last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .quality-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .quality-score-ring {
+    width: 120px;
+    height: 120px;
+  }
+
+  .quality-score-inner {
+    width: 100px;
+    height: 100px;
+  }
+
+  .quality-score-value {
+    font-size: 32px;
+  }
+}

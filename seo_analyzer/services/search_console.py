@@ -155,6 +155,10 @@ class SearchConsoleService:
         """
         Get search analytics for a specific page with retry logic
 
+        Handles trailing slash mismatch:
+        - GSC might have 'https://example.com/page/' but our DB has 'https://example.com/page'
+        - Tries both URL formats to maximize data matching
+
         Args:
             site_url: Site URL
             page_url: Specific page URL to filter
@@ -164,63 +168,229 @@ class SearchConsoleService:
         Returns:
             Dictionary with page analytics
         """
-        filters = [{
-            'dimension': 'page',
-            'operator': 'equals',
-            'expression': page_url
-        }]
+        # Generate URL variants to handle trailing slash mismatch
+        # GSC stores URLs as they appear in search, which may differ from sitemap
+        url_without_slash = page_url.rstrip('/')
+        url_with_slash = url_without_slash + '/'
+        url_variants = [page_url]
+        if url_without_slash != page_url:
+            url_variants.append(url_without_slash)
+        if url_with_slash != page_url:
+            url_variants.append(url_with_slash)
 
-        # Retry loop for transient failures
-        last_error = None
-        for attempt in range(1, MAX_RETRIES + 1):
-            result = self.get_search_analytics(
-                site_url=site_url,
-                start_date=start_date,
-                end_date=end_date,
-                dimensions=['query'],  # Group by query
-                filters=filters,
-                row_limit=100
-            )
+        # Try each URL variant until we find data
+        for url_variant in url_variants:
+            filters = [{
+                'dimension': 'page',
+                'operator': 'equals',
+                'expression': url_variant
+            }]
 
-            if result.get('error'):
-                # Check if error is transient (timeout, SSL, connection)
-                error_msg = str(result.get('message', '')).lower()
-                is_transient = any(keyword in error_msg for keyword in ['timeout', 'ssl', 'connection', 'socket', 'server error'])
+            # Retry loop for transient failures
+            last_error = None
+            for attempt in range(1, MAX_RETRIES + 1):
+                result = self.get_search_analytics(
+                    site_url=site_url,
+                    start_date=start_date,
+                    end_date=end_date,
+                    dimensions=['query'],  # Group by query
+                    filters=filters,
+                    row_limit=100
+                )
 
-                if is_transient and attempt < MAX_RETRIES:
-                    last_error = result
-                    logger.warning(f"⚠️ Transient error in Search Analytics on attempt {attempt}/{MAX_RETRIES} for {page_url}: {error_msg}")
-                    time.sleep(RETRY_DELAY_SECONDS * attempt)
-                    continue
+                if result.get('error'):
+                    # Check if error is transient (timeout, SSL, connection)
+                    error_msg = str(result.get('message', '')).lower()
+                    is_transient = any(keyword in error_msg for keyword in ['timeout', 'ssl', 'connection', 'socket', 'server error'])
 
-                # Non-transient error or max retries reached
-                return result
+                    if is_transient and attempt < MAX_RETRIES:
+                        last_error = result
+                        logger.warning(f"⚠️ Transient error in Search Analytics on attempt {attempt}/{MAX_RETRIES} for {url_variant}: {error_msg}")
+                        time.sleep(RETRY_DELAY_SECONDS * attempt)
+                        continue
 
-            # Calculate aggregated metrics
-            rows = result.get('rows', [])
-            total_clicks = sum(row.get('clicks', 0) for row in rows)
-            total_impressions = sum(row.get('impressions', 0) for row in rows)
-            avg_ctr = total_clicks / total_impressions if total_impressions > 0 else 0
-            avg_position = sum(row.get('position', 0) for row in rows) / len(rows) if rows else 0
+                    # Non-transient error or max retries reached - try next variant
+                    break
 
-            logger.info(f"✅ Search Analytics for {page_url} (attempt {attempt}): {len(rows)} queries")
+                # Calculate aggregated metrics
+                rows = result.get('rows', [])
 
-            return {
+                # If no data found with this variant, try next one
+                if not rows:
+                    logger.debug(f"No data for URL variant: {url_variant}")
+                    break  # Try next URL variant
+
+                total_clicks = sum(row.get('clicks', 0) for row in rows)
+                total_impressions = sum(row.get('impressions', 0) for row in rows)
+                avg_ctr = total_clicks / total_impressions if total_impressions > 0 else 0
+                avg_position = sum(row.get('position', 0) for row in rows) / len(rows) if rows else 0
+
+                # Found data! Log which variant worked
+                if url_variant != page_url:
+                    logger.info(f"✅ Search Analytics for {page_url} (via {url_variant}): {len(rows)} queries")
+                else:
+                    logger.info(f"✅ Search Analytics for {page_url}: {len(rows)} queries")
+
+                return {
+                    'error': False,
+                    'page_url': page_url,
+                    'matched_url': url_variant,  # Which URL variant matched
+                    'start_date': result['start_date'],
+                    'end_date': result['end_date'],
+                    'clicks': total_clicks,
+                    'impressions': total_impressions,
+                    'ctr': round(avg_ctr * 100, 2),  # Convert to percentage
+                    'avg_position': round(avg_position, 1),
+                    'query_count': len(rows),
+                    'top_queries': rows[:10],  # Top 10 queries
+                }
+
+        # No data found with any URL variant
+        logger.info(f"No Search Analytics data found for {page_url} (tried: {url_variants})")
+        return {
+            'error': False,
+            'page_url': page_url,
+            'clicks': 0,
+            'impressions': 0,
+            'ctr': 0,
+            'avg_position': 0,
+            'query_count': 0,
+            'top_queries': [],
+        }
+
+    def get_all_page_analytics(
+        self,
+        site_url: str,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        row_limit: int = 1000
+    ) -> Dict:
+        """
+        Get search analytics for ALL pages in a single efficient query.
+
+        This method is much more efficient than calling get_page_analytics() for each page,
+        as it fetches all page data in a single API call with dimensions=['page'].
+
+        Performance:
+        - Individual queries: 17 pages × 0.5s = 8.5s + lower impressions due to query aggregation
+        - Single bulk query: 1 request = 0.5s + accurate page-level impressions
+
+        Args:
+            site_url: Site URL in sc-domain format
+            start_date: Start date (default: 30 days ago)
+            end_date: End date (default: today)
+            row_limit: Max pages to return (default: 1000)
+
+        Returns:
+            Dictionary with:
+            {
                 'error': False,
-                'page_url': page_url,
-                'start_date': result['start_date'],
-                'end_date': result['end_date'],
-                'clicks': total_clicks,
-                'impressions': total_impressions,
-                'ctr': round(avg_ctr * 100, 2),  # Convert to percentage
-                'avg_position': round(avg_position, 1),
-                'query_count': len(rows),
-                'top_queries': rows[:10],  # Top 10 queries
+                'pages': {
+                    'https://example.com/': {'clicks': 10, 'impressions': 100, 'ctr': 10.0, 'position': 5.2},
+                    'https://example.com/page': {...},
+                },
+                'page_variants': {
+                    'example.com/': ['https://example.com/', 'https://example.com'],
+                    ...
+                }
+            }
+        """
+        result = self.get_search_analytics(
+            site_url=site_url,
+            start_date=start_date,
+            end_date=end_date,
+            dimensions=['page'],
+            row_limit=row_limit
+        )
+
+        if result.get('error'):
+            return result
+
+        # Build pages dictionary with URL variants for matching
+        pages_data = {}
+        page_variants = {}  # For matching DB URLs to GSC URLs
+
+        for row in result.get('rows', []):
+            page_url = row.get('keys', [''])[0]
+            if not page_url:
+                continue
+
+            pages_data[page_url] = {
+                'clicks': row.get('clicks', 0),
+                'impressions': row.get('impressions', 0),
+                'ctr': round(row.get('ctr', 0) * 100, 2),
+                'position': round(row.get('position', 0), 1),
             }
 
-        # All retries exhausted
-        logger.error(f"❌ All {MAX_RETRIES} attempts failed for Search Analytics: {page_url}")
-        return last_error if last_error else {'error': True, 'message': 'Unknown error'}
+            # Create normalized key for matching (strip protocol and trailing slash)
+            # This helps match DB URLs to GSC URLs with trailing slash differences
+            try:
+                from urllib.parse import urlparse
+                parsed = urlparse(page_url)
+                normalized = parsed.netloc + parsed.path.rstrip('/')
+                if normalized not in page_variants:
+                    page_variants[normalized] = []
+                page_variants[normalized].append(page_url)
+            except Exception:
+                pass
+
+        logger.info(f"Retrieved analytics for {len(pages_data)} pages from {site_url}")
+
+        return {
+            'error': False,
+            'start_date': result['start_date'],
+            'end_date': result['end_date'],
+            'pages': pages_data,
+            'page_variants': page_variants,
+            'total_pages': len(pages_data),
+        }
+
+    def match_page_analytics(self, all_analytics: Dict, page_url: str) -> Dict:
+        """
+        Match a database page URL to GSC analytics data, handling trailing slash variants.
+
+        Args:
+            all_analytics: Result from get_all_page_analytics()
+            page_url: The database page URL to match
+
+        Returns:
+            Analytics data for the matched page, or empty data if not found
+        """
+        if all_analytics.get('error'):
+            return {'clicks': 0, 'impressions': 0, 'ctr': 0, 'position': 0}
+
+        pages = all_analytics.get('pages', {})
+        variants = all_analytics.get('page_variants', {})
+
+        # Direct match
+        if page_url in pages:
+            return pages[page_url]
+
+        # Try with/without trailing slash
+        url_without_slash = page_url.rstrip('/')
+        url_with_slash = url_without_slash + '/'
+
+        if url_with_slash in pages:
+            return pages[url_with_slash]
+        if url_without_slash in pages:
+            return pages[url_without_slash]
+
+        # Try normalized matching
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(page_url)
+            normalized = parsed.netloc + parsed.path.rstrip('/')
+
+            if normalized in variants:
+                # Return data for the first matching variant
+                for variant_url in variants[normalized]:
+                    if variant_url in pages:
+                        return pages[variant_url]
+        except Exception:
+            pass
+
+        # No match found
+        return {'clicks': 0, 'impressions': 0, 'ctr': 0, 'position': 0}
 
     def get_index_status(self, site_url: str, page_url: str) -> Dict:
         """

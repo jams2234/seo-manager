@@ -42,6 +42,32 @@ class PageViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(domain_id=domain_id)
         return queryset
 
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new page with automatic depth_level calculation
+        """
+        data = request.data.copy()
+        parent_page_id = data.get('parent_page')
+
+        # Calculate depth_level based on parent
+        if parent_page_id:
+            try:
+                parent = Page.objects.get(id=parent_page_id)
+                data['depth_level'] = parent.depth_level + 1
+            except Page.DoesNotExist:
+                return Response(
+                    {'error': 'Parent page not found'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            data['depth_level'] = 0
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     @action(detail=False, methods=['post'], url_path='bulk-update-positions')
     def bulk_update_positions(self, request):
         """

@@ -25,6 +25,10 @@ from .views import (
     WorkspaceViewSet,
 )
 from .views.canvas_tab import CanvasTabViewSet
+from .views.ai_learning import AILearningViewSet
+from .views.ai_suggestions import AISuggestionViewSet
+from .views.google_search_console import GoogleSearchConsoleViewSet
+from .views.analytics import AnalyticsViewSet
 
 # Create router and register viewsets
 router = DefaultRouter()
@@ -59,5 +63,15 @@ router.register(r'workspaces', WorkspaceViewSet, basename='workspace')
 
 # Canvas Tab routes (per-domain tabs)
 router.register(r'canvas-tabs', CanvasTabViewSet, basename='canvastab')
+
+# AI Learning routes (continuous learning system)
+router.register(r'ai-learning', AILearningViewSet, basename='ailearning')
+router.register(r'ai-suggestions', AISuggestionViewSet, basename='aisuggestion')
+
+# Google Search Console API routes
+router.register(r'gsc', GoogleSearchConsoleViewSet, basename='gsc')
+
+# Analytics routes (domain/page performance tracking)
+router.register(r'analytics', AnalyticsViewSet, basename='analytics')
 
 urlpatterns = router.urls

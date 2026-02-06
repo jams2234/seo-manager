@@ -119,6 +119,10 @@ class PageDetailSerializer(serializers.ModelSerializer):
             'metrics',
             'children_count',
         ]
+        # Allow depth_level to be set during creation
+        extra_kwargs = {
+            'depth_level': {'required': False},
+        }
 
     def get_metrics(self, obj):
         """Get latest metrics"""
@@ -139,6 +143,9 @@ class PageUpdateSerializer(serializers.ModelSerializer):
         model = Page
         fields = [
             'id',
+            'url',
+            'path',
+            'title',
             'manual_position_x',
             'manual_position_y',
             'use_manual_position',

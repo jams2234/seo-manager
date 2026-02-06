@@ -30,6 +30,10 @@ beautifulsoup4==4.13.3
 dnspython==2.4.2
 python-dotenv==1.0.0
 
+# AI/Vector Database
+chromadb==0.5.23
+anthropic==0.18.1
+
 # Existing Dependencies (keep if already in use)
 # APScheduler will be managed by python-telegram-bot dependency
 pytz==2024.2

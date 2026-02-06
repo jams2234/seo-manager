@@ -187,12 +187,82 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Asia/Seoul'
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
+# Celery Beat Schedule (자동 분석 및 학습)
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    # =========================================================================
+    # GSC 동기화 (하루 2회 - API 쿼터 절약)
+    # GSC 데이터는 2-3일 지연되므로 자주 호출할 필요 없음
+    # =========================================================================
+    'gsc-sync-morning': {
+        'task': 'seo_analyzer.tasks.gsc_sync_all_domains',
+        'schedule': crontab(hour=8, minute=0),  # 08:00 아침
+    },
+    'gsc-sync-evening': {
+        'task': 'seo_analyzer.tasks.gsc_sync_all_domains',
+        'schedule': crontab(hour=20, minute=0),  # 20:00 저녁
+    },
+
+    # =========================================================================
+    # Full Scan (매일 - SEO 트렌드 추적을 위해 일일 실행)
+    # =========================================================================
+    'daily-full-scan': {
+        'task': 'seo_analyzer.tasks.nightly_cache_update',
+        'schedule': crontab(hour=4, minute=0),  # 매일 04:00
+    },
+
+    # =========================================================================
+    # AI 분석 및 학습
+    # =========================================================================
+    # 매일 새벽 2시: 전체 도메인 AI 분석
+    'daily-ai-analysis': {
+        'task': 'seo_analyzer.tasks.schedule_all_domain_analysis',
+        'schedule': crontab(hour=2, minute=0),
+    },
+    # 12시간마다: 벡터 임베딩 증분 업데이트 (6시간 → 12시간으로 변경)
+    'vector-embedding-update': {
+        'task': 'seo_analyzer.tasks.update_vector_embeddings',
+        'schedule': crontab(minute=0, hour='*/12'),
+    },
+    # 매일 새벽 3시: 수정 효과성 평가
+    'evaluate-fix-effectiveness': {
+        'task': 'seo_analyzer.tasks.evaluate_fix_effectiveness',
+        'schedule': crontab(hour=3, minute=0),
+    },
+    # 매일 새벽 5시: 일일 스냅샷 생성
+    'daily-snapshot': {
+        'task': 'seo_analyzer.tasks.generate_daily_snapshot',
+        'schedule': crontab(hour=5, minute=0),
+    },
+
+    # =========================================================================
+    # AI 제안 추적 시스템
+    # =========================================================================
+    # 매일 08:30: 추적중인 제안 일일 스냅샷 캡처 (GSC 동기화 후)
+    'tracking-daily-snapshot': {
+        'task': 'seo_analyzer.tasks.capture_tracking_snapshots',
+        'schedule': crontab(hour=8, minute=30),
+    },
+    # 매주 월요일 09:00: 주간 효과 분석
+    'tracking-weekly-analysis': {
+        'task': 'seo_analyzer.tasks.analyze_tracking_effectiveness',
+        'schedule': crontab(hour=9, minute=0, day_of_week=1),
+    },
+    # 매주 일요일 00:00: 오래된 추적 자동 완료 (90일 초과)
+    'tracking-auto-complete': {
+        'task': 'seo_analyzer.tasks.auto_complete_old_tracking',
+        'schedule': crontab(hour=0, minute=0, day_of_week=0),
+    },
+}
+
 # Google API Settings
 GOOGLE_SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'config', 'google_service_account.json')
 GOOGLE_API_KEY = 'AIzaSyDNKdFURUYeUJ_Z3VXEkYowTWnnxpaPRaU'  # PageSpeed Insights API Key
 GOOGLE_API_SCOPES = [
     'https://www.googleapis.com/auth/webmasters.readonly',
+    'https://www.googleapis.com/auth/webmasters',  # Full access for sitemap submission
     'https://www.googleapis.com/auth/analytics.readonly',
+    'https://www.googleapis.com/auth/indexing',  # URL indexing requests
 ]
 
 # SEO Analyzer Specific Settings

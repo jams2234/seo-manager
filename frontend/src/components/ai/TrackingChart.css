@@ -1,0 +1,167 @@
+/**
+ * TrackingChart Styles
+ * AI 제안 추적 차트 스타일
+ */
+
+.tracking-chart {
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #374151;
+}
+
+/* 메트릭 탭 */
+.metric-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.metric-tab {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(55, 65, 81, 0.5);
+  color: #9ca3af;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.metric-tab:hover {
+  background: rgba(75, 85, 99, 0.7);
+  color: #d1d5db;
+}
+
+.metric-tab.active {
+  background: var(--tab-color, #667eea);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* 요약 카드 */
+.tracking-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+  .tracking-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.summary-item {
+  background: rgba(55, 65, 81, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+.summary-label {
+  display: block;
+  font-size: 11px;
+  color: #9ca3af;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summary-value {
+  display: block;
+  font-size: 18px;
+  font-weight: 600;
+  color: #f3f4f6;
+}
+
+.summary-value.change {
+  font-size: 16px;
+}
+
+.summary-value.change.positive {
+  color: #10b981;
+}
+
+.summary-value.change.negative {
+  color: #ef4444;
+}
+
+.change-percent {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-left: 4px;
+}
+
+/* 차트 컨테이너 */
+.chart-container {
+  margin-top: 16px;
+}
+
+/* 커스텀 툴팁 */
+.tracking-chart-tooltip {
+  background: rgba(17, 24, 39, 0.95);
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.tooltip-date {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-bottom: 4px;
+}
+
+.tooltip-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f3f4f6;
+}
+
+.tooltip-baseline {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #374151;
+}
+
+/* 빈 상태 */
+.tracking-chart-empty {
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  border-radius: 12px;
+  padding: 48px 20px;
+  border: 1px solid #374151;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: #d1d5db;
+  margin-bottom: 8px;
+}
+
+.empty-subtext {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* recharts 커스텀 */
+.recharts-legend-item-text {
+  color: #d1d5db !important;
+  font-size: 12px;
+}
+
+.recharts-cartesian-axis-tick-value {
+  fill: #9ca3af;
+}

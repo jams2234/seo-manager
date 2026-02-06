@@ -37,6 +37,18 @@ class Domain(models.Model):
     last_scanned_at = models.DateTimeField(null=True, blank=True)
     next_scan_at = models.DateTimeField(null=True, blank=True)
 
+    # Sync Status Tracking
+    SYNC_STATUS_CHOICES = [
+        ('idle', 'Idle'),
+        ('running', 'Running'),
+        ('success', 'Success'),
+        ('failed', 'Failed'),
+    ]
+    last_gsc_sync_at = models.DateTimeField(null=True, blank=True, help_text='Last GSC sync timestamp')
+    gsc_sync_status = models.CharField(max_length=20, default='idle', choices=SYNC_STATUS_CHOICES)
+    last_full_scan_at = models.DateTimeField(null=True, blank=True, help_text='Last full SEO scan timestamp')
+    full_scan_status = models.CharField(max_length=20, default='idle', choices=SYNC_STATUS_CHOICES)
+
     # Google API Connections
     search_console_connected = models.BooleanField(default=False)
     analytics_connected = models.BooleanField(default=False)
@@ -1826,3 +1838,550 @@ class CanvasTab(models.Model):
     def can_edit(self):
         """편집 가능 여부 (main 탭은 편집 불가)"""
         return not self.is_main
+
+
+# ============================================================================
+# AI 지속 학습 시스템 모델
+# ============================================================================
+
+class AILearningState(models.Model):
+    """
+    도메인별 AI 학습 상태 추적
+    벡터 DB 동기화 상태 및 학습 품질 관리
+    """
+    domain = models.OneToOneField(
+        'Domain',
+        on_delete=models.CASCADE,
+        related_name='ai_learning_state'
+    )
+
+    # 마지막 동기화 정보
+    last_sync_at = models.DateTimeField(null=True, blank=True)
+    pages_synced = models.IntegerField(default=0)
+    embeddings_updated = models.IntegerField(default=0)
+
+    # 학습 통계
+    total_fixes_learned = models.IntegerField(default=0)
+    effective_fixes_count = models.IntegerField(default=0)
+    learning_quality_score = models.FloatField(default=0.0)
+
+    # 동기화 상태
+    SYNC_STATUS_CHOICES = [
+        ('idle', 'Idle'),
+        ('syncing', 'Syncing'),
+        ('success', 'Success'),
+        ('failed', 'Failed'),
+    ]
+    sync_status = models.CharField(
+        max_length=20,
+        choices=SYNC_STATUS_CHOICES,
+        default='idle'
+    )
+    last_error = models.TextField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_learning_state'
+        verbose_name = 'AI Learning State'
+        verbose_name_plural = 'AI Learning States'
+
+    def __str__(self):
+        return f"AI Learning: {self.domain.domain_name} ({self.sync_status})"
+
+
+class AIAnalysisRun(models.Model):
+    """
+    AI 분석 실행 기록
+    자동 분석 또는 수동 트리거된 분석의 실행 이력
+    """
+    domain = models.ForeignKey(
+        'Domain',
+        on_delete=models.CASCADE,
+        related_name='ai_analysis_runs'
+    )
+
+    # 실행 상태
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('running', 'Running'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+
+    # 트리거 유형
+    TRIGGER_CHOICES = [
+        ('scheduled', 'Scheduled'),
+        ('manual', 'Manual'),
+        ('event', 'Event'),
+    ]
+    trigger_type = models.CharField(
+        max_length=20,
+        choices=TRIGGER_CHOICES,
+        default='manual'
+    )
+
+    # 결과 요약
+    suggestions_count = models.IntegerField(default=0)
+    insights_count = models.IntegerField(default=0)
+    result_summary = models.JSONField(default=dict, blank=True)
+
+    # 타이밍
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    # 에러 정보
+    error_message = models.TextField(null=True, blank=True)
+
+    # Celery 태스크 ID
+    celery_task_id = models.CharField(max_length=255, null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'ai_analysis_runs'
+        ordering = ['-created_at']
+        verbose_name = 'AI Analysis Run'
+        verbose_name_plural = 'AI Analysis Runs'
+
+    def __str__(self):
+        return f"AI Analysis: {self.domain.domain_name} ({self.status})"
+
+    @property
+    def duration(self):
+        """분석 소요 시간 (초)"""
+        if self.started_at and self.completed_at:
+            return (self.completed_at - self.started_at).total_seconds()
+        return None
+
+
+class AISuggestion(models.Model):
+    """
+    AI 생성 제안
+    분석 결과로 생성된 개선 제안 및 사용자 액션 추적
+    """
+    domain = models.ForeignKey(
+        'Domain',
+        on_delete=models.CASCADE,
+        related_name='ai_suggestions'
+    )
+    page = models.ForeignKey(
+        'Page',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='ai_suggestions'
+    )
+    analysis_run = models.ForeignKey(
+        AIAnalysisRun,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='suggestions'
+    )
+
+    # 제안 유형
+    SUGGESTION_TYPE_CHOICES = [
+        ('title', 'Title Optimization'),
+        ('description', 'Meta Description'),
+        ('content', 'Content Improvement'),
+        ('structure', 'Site Structure'),
+        ('performance', 'Performance'),
+        ('keyword', 'Keyword Strategy'),
+        ('internal_link', 'Internal Linking'),
+        ('priority_action', 'Priority Action'),
+        ('quick_win', 'Quick Win'),
+        ('general', 'General'),
+    ]
+    suggestion_type = models.CharField(
+        max_length=30,
+        choices=SUGGESTION_TYPE_CHOICES,
+        default='general'
+    )
+
+    # 우선순위 (1=highest)
+    priority = models.IntegerField(default=2)
+
+    # 제안 내용
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    expected_impact = models.CharField(max_length=500, null=True, blank=True)
+
+    # 실행 데이터 (JSON)
+    action_data = models.JSONField(default=dict, blank=True)
+    is_auto_applicable = models.BooleanField(default=False)
+
+    # 상태
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('applied', 'Applied'),
+        ('rejected', 'Rejected'),
+        ('deferred', 'Deferred'),
+        ('tracking', 'Tracking'),           # NEW: 추적중
+        ('tracked', 'Track Completed'),     # NEW: 추적완료
+    ]
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+
+    # 피드백
+    rejected_reason = models.TextField(null=True, blank=True)
+    user_feedback = models.TextField(null=True, blank=True)
+
+    # 타이밍
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    applied_at = models.DateTimeField(null=True, blank=True)
+    rejected_at = models.DateTimeField(null=True, blank=True)
+    deferred_until = models.DateTimeField(null=True, blank=True)
+
+    # =========================================================================
+    # 추적 관련 필드 (지속 추적 학습 시스템)
+    # =========================================================================
+    tracking_started_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='추적 시작 시간'
+    )
+    tracking_ended_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='추적 종료 시간'
+    )
+    tracking_days = models.IntegerField(
+        default=0,
+        help_text='실제 추적된 일수'
+    )
+
+    # 기준 메트릭 (추적 시작 시점)
+    baseline_metrics = models.JSONField(
+        default=dict, blank=True,
+        help_text='추적 시작 시점의 기준 메트릭 스냅샷'
+    )
+    # {
+    #     'impressions': 100,
+    #     'clicks': 10,
+    #     'ctr': 10.0,
+    #     'position': 5.2,
+    #     'seo_score': 85,
+    #     'health_score': 78,
+    #     'keywords_count': 5,
+    #     'captured_at': '2026-02-06T12:00:00Z'
+    # }
+
+    # 최종 메트릭 (추적 종료 시점)
+    final_metrics = models.JSONField(
+        default=dict, blank=True,
+        help_text='추적 종료 시점의 최종 메트릭'
+    )
+
+    # AI 분석 결과
+    impact_analysis = models.JSONField(
+        default=dict, blank=True,
+        help_text='AI 효과 분석 결과'
+    )
+    # {
+    #     'overall_effect': 'positive',  # positive, negative, neutral, inconclusive
+    #     'confidence': 0.85,
+    #     'summary': '노출수 23% 증가, CTR 0.5%p 개선',
+    #     'factors': [{'factor': '...', 'effect': '...'}],
+    #     'recommendations': ['...'],
+    #     'analyzed_at': '...'
+    # }
+
+    # 효과성 점수 (0-100)
+    effectiveness_score = models.FloatField(
+        null=True, blank=True,
+        help_text='AI가 평가한 효과성 점수 (0-100)'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_suggestions'
+        ordering = ['priority', '-created_at']
+        indexes = [
+            models.Index(fields=['domain', 'status']),
+            models.Index(fields=['priority', '-created_at']),
+            models.Index(fields=['suggestion_type']),
+        ]
+        verbose_name = 'AI Suggestion'
+        verbose_name_plural = 'AI Suggestions'
+
+    def __str__(self):
+        return f"{self.get_suggestion_type_display()}: {self.title[:50]}"
+
+
+class AIFeedback(models.Model):
+    """
+    AI 제안에 대한 사용자 피드백
+    학습 개선을 위한 피드백 데이터 수집
+    """
+    suggestion = models.ForeignKey(
+        AISuggestion,
+        on_delete=models.CASCADE,
+        related_name='feedback'
+    )
+
+    FEEDBACK_TYPE_CHOICES = [
+        ('accept', 'Accepted'),
+        ('reject', 'Rejected'),
+        ('helpful', 'Helpful'),
+        ('not_helpful', 'Not Helpful'),
+        ('incorrect', 'Incorrect'),
+    ]
+    feedback_type = models.CharField(
+        max_length=20,
+        choices=FEEDBACK_TYPE_CHOICES
+    )
+
+    comment = models.TextField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'ai_feedback'
+        verbose_name = 'AI Feedback'
+        verbose_name_plural = 'AI Feedback'
+
+    def __str__(self):
+        return f"Feedback: {self.get_feedback_type_display()} for {self.suggestion_id}"
+
+
+class SuggestionTrackingSnapshot(models.Model):
+    """
+    AI 제안별 일별 추적 스냅샷
+    제안 적용 후 SEO 데이터 변화를 일일 모니터링하기 위한 시계열 데이터
+    """
+    suggestion = models.ForeignKey(
+        AISuggestion,
+        on_delete=models.CASCADE,
+        related_name='tracking_snapshots'
+    )
+
+    # 날짜 정보
+    date = models.DateField(db_index=True)
+    day_number = models.IntegerField(
+        default=1,
+        help_text='추적 시작 후 N일차'
+    )
+
+    # GSC 메트릭
+    impressions = models.IntegerField(default=0)
+    clicks = models.IntegerField(default=0)
+    ctr = models.FloatField(
+        null=True, blank=True,
+        help_text='CTR 퍼센트 (예: 5.2 = 5.2%)'
+    )
+    avg_position = models.FloatField(null=True, blank=True)
+
+    # SEO 스코어
+    seo_score = models.FloatField(null=True, blank=True)
+    performance_score = models.FloatField(null=True, blank=True)
+    health_score = models.FloatField(null=True, blank=True)
+
+    # 키워드 관련
+    keywords_count = models.IntegerField(default=0)
+    top_keywords = models.JSONField(
+        default=list, blank=True,
+        help_text='상위 키워드 목록 [{"keyword": "...", "impressions": N, "clicks": N}]'
+    )
+
+    # 기준 대비 변화량 (baseline 대비)
+    impressions_change = models.IntegerField(
+        default=0,
+        help_text='기준 대비 노출수 변화량'
+    )
+    clicks_change = models.IntegerField(
+        default=0,
+        help_text='기준 대비 클릭수 변화량'
+    )
+    ctr_change = models.FloatField(
+        null=True, blank=True,
+        help_text='기준 대비 CTR 변화 (퍼센트 포인트)'
+    )
+    position_change = models.FloatField(
+        null=True, blank=True,
+        help_text='기준 대비 순위 변화 (음수=순위 상승)'
+    )
+    seo_score_change = models.FloatField(
+        null=True, blank=True,
+        help_text='기준 대비 SEO 점수 변화'
+    )
+
+    # 변화율 (퍼센트)
+    impressions_change_percent = models.FloatField(
+        null=True, blank=True,
+        help_text='기준 대비 노출수 변화율 (%)'
+    )
+    clicks_change_percent = models.FloatField(
+        null=True, blank=True,
+        help_text='기준 대비 클릭수 변화율 (%)'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'suggestion_tracking_snapshots'
+        unique_together = ['suggestion', 'date']
+        ordering = ['suggestion', 'day_number']
+        indexes = [
+            models.Index(fields=['suggestion', 'date']),
+            models.Index(fields=['date']),
+        ]
+        verbose_name = 'Suggestion Tracking Snapshot'
+        verbose_name_plural = 'Suggestion Tracking Snapshots'
+
+    def __str__(self):
+        return f"Snapshot Day {self.day_number} for Suggestion #{self.suggestion_id}"
+
+
+class SuggestionEffectivenessLog(models.Model):
+    """
+    AI 제안 효과성 분석 로그
+    주간/마일스톤/최종 분석 결과를 저장
+    """
+    suggestion = models.ForeignKey(
+        AISuggestion,
+        on_delete=models.CASCADE,
+        related_name='effectiveness_logs'
+    )
+
+    ANALYSIS_TYPE_CHOICES = [
+        ('weekly', 'Weekly Analysis'),
+        ('milestone', 'Milestone Analysis'),  # 7일, 14일, 30일 등
+        ('final', 'Final Analysis'),
+        ('manual', 'Manual Analysis'),
+    ]
+    analysis_type = models.CharField(
+        max_length=20,
+        choices=ANALYSIS_TYPE_CHOICES
+    )
+
+    # 분석 시점
+    days_since_applied = models.IntegerField(
+        help_text='적용 후 경과 일수'
+    )
+
+    # 메트릭 비교
+    baseline_metrics = models.JSONField(
+        default=dict,
+        help_text='기준 메트릭 스냅샷'
+    )
+    current_metrics = models.JSONField(
+        default=dict,
+        help_text='현재 메트릭 스냅샷'
+    )
+    changes = models.JSONField(
+        default=dict,
+        help_text='메트릭 변화량 및 변화율'
+    )
+    # {
+    #     'impressions': {'value': 50, 'percent': 23.5, 'direction': 'up'},
+    #     'clicks': {'value': 8, 'percent': 40.0, 'direction': 'up'},
+    #     'ctr': {'value': 0.5, 'percent': 10.0, 'direction': 'up'},
+    #     'position': {'value': -1.2, 'percent': -18.5, 'direction': 'up'},  # 음수 = 순위 상승
+    #     'seo_score': {'value': 5, 'percent': 6.3, 'direction': 'up'},
+    # }
+
+    # AI 분석 결과
+    ai_analysis = models.JSONField(
+        default=dict, blank=True,
+        help_text='Claude AI 분석 결과'
+    )
+    # {
+    #     'overall_effect': 'positive',  # positive, negative, neutral, inconclusive
+    #     'confidence': 0.85,
+    #     'summary': '노출수 23% 증가, CTR 0.5%p 개선',
+    #     'factors': [
+    #         {'factor': '제목 최적화', 'effect': 'positive', 'confidence': 0.9},
+    #         {'factor': '계절적 요인', 'effect': 'neutral', 'confidence': 0.5},
+    #     ],
+    #     'recommendations': ['...'],
+    #     'insights': ['...'],
+    # }
+
+    effectiveness_score = models.FloatField(
+        null=True, blank=True,
+        help_text='효과성 점수 (0-100)'
+    )
+
+    # 트렌드 분석
+    trend_direction = models.CharField(
+        max_length=20,
+        null=True, blank=True,
+        choices=[
+            ('improving', 'Improving'),
+            ('stable', 'Stable'),
+            ('declining', 'Declining'),
+            ('volatile', 'Volatile'),
+        ],
+        help_text='전체 트렌드 방향'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'suggestion_effectiveness_logs'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['suggestion', '-created_at']),
+            models.Index(fields=['analysis_type']),
+        ]
+        verbose_name = 'Suggestion Effectiveness Log'
+        verbose_name_plural = 'Suggestion Effectiveness Logs'
+
+    def __str__(self):
+        return f"{self.get_analysis_type_display()} (Day {self.days_since_applied}) for Suggestion #{self.suggestion_id}"
+
+
+class DailyTrafficSnapshot(models.Model):
+    """
+    도메인별 일별 GSC 트래픽 데이터 스냅샷
+    GSC API에서 가져온 과거 데이터를 영구 저장하여 히스토리 추적
+    """
+    domain = models.ForeignKey(
+        Domain,
+        on_delete=models.CASCADE,
+        related_name='traffic_snapshots'
+    )
+
+    # 날짜 (YYYY-MM-DD)
+    date = models.DateField(db_index=True)
+
+    # GSC 트래픽 데이터
+    impressions = models.IntegerField(default=0)
+    clicks = models.IntegerField(default=0)
+    ctr = models.FloatField(null=True, blank=True)  # 0.0 ~ 1.0
+    avg_position = models.FloatField(null=True, blank=True)
+
+    # 메타 정보
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'daily_traffic_snapshots'
+        ordering = ['-date']
+        unique_together = ['domain', 'date']
+        indexes = [
+            models.Index(fields=['domain', '-date']),
+        ]
+        verbose_name = 'Daily Traffic Snapshot'
+        verbose_name_plural = 'Daily Traffic Snapshots'
+
+    def __str__(self):
+        return f"{self.domain.domain_name} - {self.date}: {self.impressions} impressions"
+
+    @property
+    def ctr_percent(self):
+        """CTR을 퍼센트로 반환 (0 ~ 100)"""
+        if self.ctr is not None:
+            return round(self.ctr * 100, 2)
+        return 0.0

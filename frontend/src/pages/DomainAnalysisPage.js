@@ -10,6 +10,7 @@ import Dashboard from '../components/dashboard/Dashboard';
 import PageDetails from '../components/dashboard/PageDetails';
 import ProgressModal from '../components/common/ProgressModal';
 import SitemapEditorTab from '../components/sitemap-editor/SitemapEditorTab';
+import { AILearningDashboard } from '../components/ai';
 import { domainService } from '../services/domainService';
 import './DomainAnalysisPage.css';
 
@@ -359,6 +360,12 @@ const DomainAnalysisPage = () => {
           >
             📊 Dashboard
           </button>
+          <button
+            className={`tab ${activeTab === 'ai' ? 'active' : ''}`}
+            onClick={() => setActiveTab('ai')}
+          >
+            🧠 AI 학습
+          </button>
         </div>
 
         {/* Content */}
@@ -390,6 +397,13 @@ const DomainAnalysisPage = () => {
 
           {activeTab === 'dashboard' && (
             <Dashboard domain={currentDomain} />
+          )}
+
+          {activeTab === 'ai' && currentDomain && (
+            <AILearningDashboard
+              domainId={domainId}
+              domainName={currentDomain.domain_name}
+            />
           )}
 
           {/* Page Details Sidebar */}

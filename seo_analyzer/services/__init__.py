@@ -16,6 +16,8 @@ from .claude_client import ClaudeAPIClient, ClaudeAnalyzer
 from .sitemap_ai_analyzer import SitemapAIAnalyzerService
 from .seo_knowledge_builder import SEOKnowledgeBuilder
 from .ai_auto_fixer import AIAutoFixer
+from .ai_analysis_engine import AIAnalysisEngine
+from .vector_store import SEOVectorStore, get_vector_store
 
 # Custom exceptions
 from .exceptions import (
@@ -65,6 +67,10 @@ __all__ = [
     'ClaudeAnalyzer',
     'SitemapAIAnalyzerService',
     'SEOKnowledgeBuilder',
+    'AIAutoFixer',
+    'AIAnalysisEngine',
+    'SEOVectorStore',
+    'get_vector_store',
     # Exceptions
     'SEOAnalyzerException',
     'DomainException',

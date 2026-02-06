@@ -481,3 +481,97 @@ class SEOIssueViewSet(viewsets.ModelViewSet):
                 {'error': f'Revert failed: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @action(detail=False, methods=['get'], url_path='effectiveness_stats')
+    def effectiveness_stats(self, request):
+        """
+        AI 수정 효과성 통계
+        GET /api/v1/seo-issues/effectiveness_stats/
+        """
+        from datetime import timedelta
+        from ..models import AIFixHistory
+
+        domain_id = request.query_params.get('domain_id')
+        time_range = request.query_params.get('time_range', '30d')
+
+        # 기간 계산
+        days = 30
+        if time_range == '7d':
+            days = 7
+        elif time_range == '90d':
+            days = 90
+        elif time_range == 'all':
+            days = None
+
+        queryset = AIFixHistory.objects.all()
+        if domain_id:
+            queryset = queryset.filter(page__domain_id=domain_id)
+        if days:
+            cutoff = timezone.now() - timedelta(days=days)
+            queryset = queryset.filter(created_at__gte=cutoff)
+
+        total = queryset.count()
+        effective = queryset.filter(effectiveness='effective').count()
+        ineffective = queryset.filter(effectiveness='ineffective').count()
+        unknown = queryset.filter(effectiveness='unknown').count()
+
+        # 재발률 계산
+        recurred = queryset.filter(issue_recurred=True).count()
+        recurrence_rate = recurred / total if total > 0 else 0
+
+        # 평균 해결 시간
+        avg_resolution_time = None
+        fixed_with_time = queryset.exclude(deployed_at__isnull=True).exclude(created_at__isnull=True)
+        if fixed_with_time.exists():
+            total_time = sum(
+                [(f.deployed_at - f.created_at).total_seconds() for f in fixed_with_time if f.deployed_at and f.created_at],
+                0
+            )
+            avg_seconds = total_time / fixed_with_time.count() if fixed_with_time.count() > 0 else 0
+            if avg_seconds > 0:
+                hours = int(avg_seconds // 3600)
+                minutes = int((avg_seconds % 3600) // 60)
+                avg_resolution_time = f"{hours}시간 {minutes}분" if hours > 0 else f"{minutes}분"
+
+        return Response({
+            'total_fixes': total,
+            'effective': effective,
+            'ineffective': ineffective,
+            'unknown': unknown,
+            'effectiveness_rate': (effective / total * 100) if total > 0 else 0,
+            'recurrence_rate': recurrence_rate,
+            'avg_resolution_time': avg_resolution_time,
+        })
+
+    @action(detail=False, methods=['get'], url_path='recent_fixes')
+    def recent_fixes(self, request):
+        """
+        최근 수정 이력
+        GET /api/v1/seo-issues/recent_fixes/
+        """
+        from ..models import AIFixHistory
+
+        domain_id = request.query_params.get('domain_id')
+        limit = int(request.query_params.get('limit', 10))
+
+        queryset = AIFixHistory.objects.all().select_related('page')
+        if domain_id:
+            queryset = queryset.filter(page__domain_id=domain_id)
+
+        fixes = queryset.order_by('-created_at')[:limit]
+
+        result = []
+        for fix in fixes:
+            result.append({
+                'id': fix.id,
+                'issue_type': fix.issue_type,
+                'fix_status': fix.fix_status,
+                'effectiveness': fix.effectiveness,
+                'page_url': fix.page.url if fix.page else None,
+                'issue_recurred': fix.issue_recurred,
+                'recurrence_count': fix.recurrence_count,
+                'created_at': fix.created_at,
+                'deployed_at': fix.deployed_at,
+            })
+
+        return Response(result)

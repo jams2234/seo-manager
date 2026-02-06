@@ -252,7 +252,9 @@ class DomainRefreshService:
 
         logger.info(f"Found {total_pages} pages to update")
 
-        # Update Search Console data using BATCH request (12x faster!)
+        # Update Search Console data using optimized BATCH requests
+        # 1. Batch URL Inspection for index status (single HTTP request for all pages)
+        # 2. Bulk Search Analytics query (single HTTP request for all page stats)
         updated = 0
         failed = 0
 
@@ -264,19 +266,36 @@ class DomainRefreshService:
             failed += invalid_count
 
         if valid_pages:
-            # Progress: starting batch
+            site_url = f"sc-domain:{domain.domain_name}"
+            page_urls = [p.url for p in valid_pages]
+
+            # Step 1: Fetch ALL page analytics in single query (much more accurate!)
             self._update_progress(
                 progress_callback,
                 10,
                 100,
+                f"Fetching search analytics for all pages..."
+            )
+
+            all_analytics = None
+            try:
+                all_analytics = self.search_console.get_all_page_analytics(site_url)
+                if all_analytics.get('error'):
+                    logger.warning(f"⚠️ Bulk analytics query failed: {all_analytics.get('message')}")
+                    all_analytics = None
+                else:
+                    logger.info(f"✅ Retrieved analytics for {all_analytics.get('total_pages')} GSC pages")
+            except BaseException as e:
+                logger.warning(f"⚠️ Bulk analytics query failed: {e}")
+
+            # Step 2: Batch URL Inspection for index status
+            self._update_progress(
+                progress_callback,
+                30,
+                100,
                 f"Batch fetching index status for {len(valid_pages)} pages..."
             )
 
-            # Prepare batch request
-            site_url = f"sc-domain:{domain.domain_name}"
-            page_urls = [p.url for p in valid_pages]
-
-            # Execute batch URL Inspection (single HTTP request!)
             try:
                 batch_results = self.search_console.batch_get_index_status(site_url, page_urls)
 
@@ -305,37 +324,45 @@ class DomainRefreshService:
                         latest_metrics.index_status = result.get('verdict', 'UNKNOWN')
                         latest_metrics.coverage_state = result.get('coverage_state', 'Unknown')
 
-                        # Fetch Search Analytics (not batchable in same way)
-                        try:
-                            analytics = self.search_console.get_page_analytics(
-                                site_url,
-                                page.url
-                            )
-                            if not analytics.get('error'):
-                                latest_metrics.impressions = analytics.get('impressions', 0)
-                                latest_metrics.clicks = analytics.get('clicks', 0)
-                                latest_metrics.ctr = analytics.get('ctr', 0)
-                                latest_metrics.avg_position = analytics.get('avg_position', 0)
-                                # 키워드(쿼리) 데이터 저장
-                                top_queries = analytics.get('top_queries', [])
-                                if top_queries:
-                                    latest_metrics.top_queries = [
-                                        {
-                                            'query': q.get('keys', [''])[0] if q.get('keys') else '',
-                                            'clicks': q.get('clicks', 0),
-                                            'impressions': q.get('impressions', 0),
-                                            'ctr': round(q.get('ctr', 0) * 100, 2),
-                                            'position': round(q.get('position', 0), 1)
-                                        }
-                                        for q in top_queries[:10]
-                                    ]
-                        except BaseException as analytics_error:
-                            # Search Analytics failure is non-fatal
-                            logger.warning(f"⚠️ Search Analytics failed for {page.url}: {analytics_error}")
+                        # Get Search Analytics from bulk query (much more accurate than per-page query)
+                        if all_analytics:
+                            analytics = self.search_console.match_page_analytics(all_analytics, page.url)
+                            latest_metrics.impressions = analytics.get('impressions', 0)
+                            latest_metrics.clicks = analytics.get('clicks', 0)
+                            latest_metrics.ctr = analytics.get('ctr', 0)
+                            latest_metrics.avg_position = analytics.get('position', 0)
+
+                            # Fetch top_queries for pages with impressions (need per-page query)
+                            if analytics.get('impressions', 0) > 0:
+                                try:
+                                    page_analytics = self.search_console.get_page_analytics(
+                                        site_url,
+                                        page.url
+                                    )
+                                    if not page_analytics.get('error') and page_analytics.get('top_queries'):
+                                        latest_metrics.top_queries = page_analytics.get('top_queries', [])
+                                        logger.debug(f"✅ Got {len(latest_metrics.top_queries)} keywords for {page.url}")
+                                except BaseException as kw_error:
+                                    logger.debug(f"⚠️ Keywords fetch failed for {page.url}: {kw_error}")
+                        else:
+                            # Fallback to per-page query if bulk failed
+                            try:
+                                analytics = self.search_console.get_page_analytics(
+                                    site_url,
+                                    page.url
+                                )
+                                if not analytics.get('error'):
+                                    latest_metrics.impressions = analytics.get('impressions', 0)
+                                    latest_metrics.clicks = analytics.get('clicks', 0)
+                                    latest_metrics.ctr = analytics.get('ctr', 0)
+                                    latest_metrics.avg_position = analytics.get('avg_position', 0)
+                                    latest_metrics.top_queries = analytics.get('top_queries', [])
+                            except BaseException as analytics_error:
+                                logger.warning(f"⚠️ Search Analytics failed for {page.url}: {analytics_error}")
 
                         latest_metrics.save()
                         updated += 1
-                        logger.debug(f"✅ Updated {page.url}")
+                        logger.debug(f"✅ Updated {page.url}: {latest_metrics.impressions} impressions")
 
                         # Progress update
                         progress = 50 + int((idx / len(valid_pages)) * 40)
